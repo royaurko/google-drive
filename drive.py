@@ -6,6 +6,7 @@ import mimetypes
 from apiclient.discovery import build
 from apiclient.http import MediaFileUpload
 from oauth2client.client import OAuth2WebServerFlow
+from oauth2client.file import Storage
 
 # Set CLIENT_ID and CLIENT_SECRET as your environment variables
 
@@ -15,22 +16,33 @@ OAUTH_SCOPE = 'https://www.googleapis.com/auth/drive'
 # Redirect URI for installed apps
 REDIRECT_URI = 'urn:ietf:wg:oauth:2.0:oob'
 
-# Run through the OAuth flow and retrieve credentials
-flow = OAuth2WebServerFlow(os.environ['CLIENT_ID'], os.environ['CLIENT_SECRET'], OAUTH_SCOPE,
+
+def authorize():
+    # Check if credentials already exist
+    fname = '.credentials'
+    if os.path.isfile(fname):
+        storage = Storage('.credentials')
+        credentials = storage.get()
+    else:
+        # Create a flow object to get user authentication
+        flow = OAuth2WebServerFlow(os.environ['CLIENT_ID'], os.environ['CLIENT_SECRET'], OAUTH_SCOPE,
                                                       redirect_uri=REDIRECT_URI)
-authorize_url = flow.step1_get_authorize_url()
-print 'Go to the following link in your browser: ' + authorize_url
-code = raw_input('Enter verification code: ').strip()
-credentials = flow.step2_exchange(code)
+        authorize_url = flow.step1_get_authorize_url()
+        print 'Go to the following link in your browser: ' + authorize_url
+        code = raw_input('Enter verification code: ').strip()
+        credentials = flow.step2_exchange(code)
+        # Store credentials for future use
+        storage = Storage('.credentials')
+        storage.put(credentials)
 
 # Create an httplib2.Http object and authorize it with our credentials
-http = httplib2.Http()
-http = credentials.authorize(http)
+    http = httplib2.Http()
+    http = credentials.authorize(http)
 
-drive_service = build('drive', 'v2', http=http)
-
+    drive_service = build('drive', 'v2', http=http)
+    return drive_service
 # Upload a file
-def upload(file_name='document'):
+def upload(file_name, drive_service):
     media_body = MediaFileUpload(file_name, mimetype=mimetypes.guess_type(file_name), resumable=True)
     body = {
         'title': 'My document',
@@ -42,4 +54,5 @@ def upload(file_name='document'):
     pprint.pprint(file)
 
 if __name__ == '__main__':
-    upload('document.txt')
+    drive_service = authorize()
+    upload('document.txt', drive_service)
