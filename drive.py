@@ -67,10 +67,10 @@ def upload(file_name, drive_service, json_info):
     mime_type = mimetypes.guess_type(file_name)
     if mime_type == (None, None):
         mime_type = 'text/plain'
-    media_body = MediaFileUpload(file_name, mimetype=mime_type, resumable=True)
+    media_body = MediaFileUpload(file_name, mimetype = mime_type, resumable = True)
     body = {
         'title': file_name,
-        'description': 'A test document',
+        'description': '',
         'mimeType': mime_type
     }
     # Upload the returned metadata to mongodb
@@ -82,6 +82,27 @@ def upload(file_name, drive_service, json_info):
         print 'An error occured: %s' % error
 
 
+def update(file_name, drive_service, json_info):
+    # Update existing file
+    try:
+        file_id = json_info.find_one({'title': file_name})['id']
+        file = drive_service.files().get(fileId = file_id).execute()
+        print file
+        mime_type = mimetypes.guess_type(file_name)
+        if mime_type == (None, None):
+            mime_type = 'text/plain'
+        media_body = MediaFileUpload(file_name, mimetype = mime_type, resumable = True)
+        body = {
+            'title': file_name,
+            'description': '',
+            'mimeType': mime_type
+        }
+        # Send file
+        updated_file = drive_service.files().update(fileId = file_id, body = file, media_body = media_body).execute()
+    except errors.HttpError, error:
+        print 'An error has occured: %s' % error
+
+
 def delete(file_name, drive_service, json_info):
     file_id = json_info.find_one({'title': file_name})['id']
     json_info.remove({'title': file_name})
@@ -91,21 +112,34 @@ def delete(file_name, drive_service, json_info):
         print 'An error occurred: %s' % error
 
 
-def watch(path, interval, drive_service, json_info):
-    before = dict([(f, None) for f in os.listdir(path)])
+def watch(path, interval, drive_service, json_info, log_file):
+    forbidden = ['.git', 'log', 'drive.py']
+    before = dict([(f, time.ctime(os.path.getmtime(f))) for f in os.listdir(path) if f not in forbidden])
     while True:
         time.sleep(interval)
-        after = dict([(f, None) for f in os.listdir(path)])
+        # First check if any of the old files were modified
+        after = dict([(f, time.ctime(os.path.getmtime(f))) for f in os.listdir(path) if f not in forbidden])
         added = [f for f in after if not f in before]
         removed = [f for f in before if not f in after]
+        modified = [f for f in before if f in after and before[f]!=after[f]]
         if added:
             for f in added:
-                print 'Added: ', ', '.join(added)
                 upload(f, drive_service, json_info)
+                write_str = time.strftime("%m.%d.%y %H:%M ", time.localtime())
+                write_str += 'Uploaded (new): ' + ', '.join(added) + '\n'
+                log_file.write(write_str)
+        if modified:
+            for f in modified:
+                update(f, drive_service, json_info)
+                write_str = time.strftime("%m.%d.%y %H:%M ", time.localtime())
+                write_str += 'Uploaded (modified): ' + ', '.join(modified) + '\n'
+                log_file.write(write_str)
         if removed:
             for f in removed:
-                print 'Removed: ', ', '.join(removed)
                 delete(f, drive_service, json_info)
+                write_str = time.strftime("%m.%d.%y %H:%M ", time.localtime())
+                write_str += 'Removed: ' + ', '.join(removed) + '\n'
+                log_file.write(write_str)
         before = after
 
 
@@ -115,4 +149,5 @@ if __name__ == '__main__':
     drive_service = authorize()
     file_list = drive_service.files().list().execute()['items']
     json_info = initialize_db(drive_service)
-    watch(path, interval, drive_service, json_info)
+    log_file = open('log', 'wb', 0)
+    watch(path, interval, drive_service, json_info, log_file)
