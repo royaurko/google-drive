@@ -87,7 +87,6 @@ def update(file_name, drive_service, json_info):
     try:
         file_id = json_info.find_one({'title': file_name})['id']
         file = drive_service.files().get(fileId = file_id).execute()
-        print file
         mime_type = mimetypes.guess_type(file_name)
         if mime_type == (None, None):
             mime_type = 'text/plain'
