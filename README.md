@@ -10,8 +10,18 @@ still very much a work in progress.
 
 ##Usage:
 
-Set **CLIENT_ID** and **CLIENT_SECRET** for accessing your google-drive as environment variables (for instance
+* Set **CLIENT_ID** and **CLIENT_SECRET** for accessing your google-drive as environment variables (for instance
 in ~/.zshenv or ~/.bashrc
+
+* The program takes one argument, namely the time interval between two successive syncs. To run script type:
+
+```
+
+$ ./drive.py [time]
+
+```
+
+where [time] is the number of seconds between syncs.
 
 ##Implemented so far:
 
