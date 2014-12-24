@@ -237,7 +237,7 @@ def watch(path, interval, drive_service, json_info, log_file):
 
 def helpmenu():
     print '\nUsage: ./drive.py [Options...]\n'
-    print '\nArguments:\n'
+    print '\nOptions:\n'
     print '-t Time interval to sync\n'
     print '-f Folder to sync (Optional)\n'
 
