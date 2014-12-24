@@ -1,6 +1,6 @@
 ##Description:
 
-A python script that runs in the background and syncs a local folder to google-drive like Dropbox. This is
+A python script that runs in the background and syncs a local folder to Google Drive like Dropbox. This is
 still very much a work in progress.
 
 ##System Requirements:
@@ -10,8 +10,8 @@ still very much a work in progress.
 
 ##Usage:
 
-* Set **CLIENT_ID** and **CLIENT_SECRET** for accessing your google-drive as environment variables (for instance
-in ~/.zshenv or ~/.bashrc
+* Set **CLIENT_ID** and **CLIENT_SECRET** for accessing your Google Drive account as environment variables (for instance
+in ~/.zshenv or ~/.bashrc)
 
 ```
 
