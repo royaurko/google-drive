@@ -36,6 +36,7 @@ Optional Options:
 
 ##Todo:
 
+* Check issues if there are different files with same name etc
 * Download files and folders added remotely to local folder
 * Update, delete files locally when updated, deleted remotely
 
