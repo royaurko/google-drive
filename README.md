@@ -29,13 +29,13 @@ Optional Options:
 
 ##Implemented so far:
 
-* Uploading files, folders to different folder hierarchies
-* Updating files in different folders
-* Deleting files, folders in different hierarchies
+* Uploading files, folders from local to remote (preserving hierarchy)
+* Updating files changed in local to remote (preserving hierarchy)
+* Deleting remote files, folders deleted locally
 
 
 ##Todo:
 
 * Download files and folders added remotely to local folder
-
+* Update, delete files locally when updated, deleted remotely
 
