@@ -15,7 +15,7 @@ in ~/.zshenv or ~/.bashrc
 
 ```
 
-Usage: ./drive.py [Optional options...]
+Usage: ./drive.py [Optional options...] &
 
 Optional Options:
   -t Time interval between syncs
@@ -23,7 +23,9 @@ Optional Options:
 
 ```
 
-By default the script monitors the folder where the script is located and the time interval between syncs is 10 seconds.
+* By default the script monitors the folder where the script is located and the time interval between syncs is 10 seconds.
+
+* The script maintains a log file named *log* which is located in the same directory as the script.   
 
 ##Implemented so far:
 
@@ -34,6 +36,6 @@ By default the script monitors the folder where the script is located and the ti
 
 ##Todo:
 
-* Moving a folder and all its contents to another target folder
+* Download files and folders added remotely to local folder
 
 
