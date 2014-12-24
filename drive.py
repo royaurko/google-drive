@@ -23,7 +23,7 @@ OAUTH_SCOPE = 'https://www.googleapis.com/auth/drive'
 REDIRECT_URI = 'urn:ietf:wg:oauth:2.0:oob'
 
 
-def initialize_db(drive_service):
+def initialize_db(drive_servicei, log_file):
     # Populate database with the current metadata
     client = MongoClient()
     db = client.drivedb
@@ -33,7 +33,9 @@ def initialize_db(drive_service):
     for i in range(len(file_list)):
         temp_dict = dict((k,file_list[i][k]) for k in ('id', 'title', 'parents', 'createdDate', 'modifiedDate'))
         json_id = json_info.insert(temp_dict)
-    print 'Database populated!'
+    write_str = time.strftime("%m.%d.%y %H:%M ", time.localtime())
+    write_str += 'Database populated!\n'
+    log_file.write(write_str)
     return json_info
 
 
@@ -156,7 +158,6 @@ def watch(path, interval, drive_service, json_info, log_file):
                                  for f in dirs if f not in forbidden and not '.swp' in f])
     while True:
         time.sleep(interval)
-        # First check if any of the old files were modified
         for root, dirs, files in os.walk(path, topdown = True):
             dirs[:] = [d for d in dirs if d not in forbidden]
             after_file[root] = dict([(f, time.ctime(os.path.getmtime(os.path.join(root, f))))
@@ -183,7 +184,6 @@ def watch(path, interval, drive_service, json_info, log_file):
                     write_str = time.strftime("%m.%d.%y %H:%M ", time.localtime())
                     write_str += 'Uploaded (new) file: ' + os.path.join(root, f) + '\n'
                     log_file.write(write_str)
-                print 'Added file', ','.join(added_file)
             if modified_file:
                 k = root.rfind('/') + 1
                 title = root[k:]
@@ -197,7 +197,6 @@ def watch(path, interval, drive_service, json_info, log_file):
                     write_str = time.strftime("%m.%d.%y %H:%M ", time.localtime())
                     write_str += 'Uploaded (modified) file: ' + os.path.join(root, f) + '\n'
                     log_file.write(write_str)
-                print 'Modified file', ','.join(modified_file)
             if removed_file:
                 k = root.rfind('/') + 1
                 title = root[k:]
@@ -226,14 +225,12 @@ def watch(path, interval, drive_service, json_info, log_file):
                     write_str = time.strftime("%m.%d.%y %H:%M ", time.localtime())
                     write_str += 'Uploaded (new) directory: ' + os.path.join(root, f) + '\n'
                     log_file.write(write_str)
-                print 'Added directory: ', ','.join(added_dir)
             if removed_dir:
                 for f in removed_dir:
                     delete(f, drive_service, json_info)
                     write_str = time.strftime("%m.%d.%y %H:%M ", time.localtime())
                     write_str += 'Removed directory: ' + os.path.join(root, f) + '\n'
                     log_file.write(write_str)
-                print 'Removed directory: ', ','.join(removed_dir)
             before_file[root] = after_file[root]
             before_dir[root] = after_dir[root]
 
@@ -242,7 +239,6 @@ if __name__ == '__main__':
     path = os.getcwd()
     interval = float(sys.argv[1])
     drive_service = authorize()
-    json_info = initialize_db(drive_service)
-    file_list = drive_service.files().list().execute()['items']
     log_file = open('log', 'wb', 0)
+    json_info = initialize_db(drive_service, log_file)
     watch(path, interval, drive_service, json_info, log_file)
