@@ -235,10 +235,48 @@ def watch(path, interval, drive_service, json_info, log_file):
             before_dir[root] = after_dir[root]
 
 
+def helpmenu():
+    print '\nUsage: ./drive.py [Options...]\n'
+    print '\nArguments:\n'
+    print '-t Time interval to sync\n'
+    print '-f Folder to sync (Optional)\n'
+
+
 if __name__ == '__main__':
-    path = os.getcwd()
-    interval = float(sys.argv[1])
-    drive_service = authorize()
-    log_file = open('log', 'wb', 0)
-    json_info = initialize_db(drive_service, log_file)
-    watch(path, interval, drive_service, json_info, log_file)
+    flag = 0
+    if len(sys.argv) == 1:
+        path = os.getcwd()
+        interval = 10
+        flag = 1
+    elif len(sys.argv) == 3:
+        if sys.argv[1] == '-f':
+            path = sys.argv[2]
+            interval = 10
+            flag = 1
+        elif sys.argv[1] == '-t':
+            interval = float(sys.argv[2])
+            path = os.getcwd()
+            flag = 1
+        else:
+            helpmenu()
+    elif len(sys.argv) == 5:
+        if sys.argv[1] == '-t' and sys.argv[3] == '-f':
+            interval = float(sys.argv[2])
+            path = sys.argv[4]
+            flag = 1
+        elif sys.argv[1] == '-f' and sys.argv[3] == '-t':
+            interval = float(sys.argv[4])
+            path = sys.argv[2]
+            flag = 1
+        else:
+            helpmenu()
+    else:
+        helpmenu()
+    if flag > 0:
+        drive_service = authorize()
+        log_file = open('log', 'wb', 0)
+        write_str = 'Monitoring folder: ' + path + '\n'
+        write_str += 'Time interval between syncs: ' + str(interval) + '\n'
+        log_file.write(write_str)
+        json_info = initialize_db(drive_service, log_file)
+        watch(path, interval, drive_service, json_info, log_file)
