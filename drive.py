@@ -7,7 +7,6 @@ import time
 import sys
 import pymongo
 import string
-import re
 from pymongo import MongoClient
 from apiclient.discovery import build
 from apiclient.http import MediaFileUpload
