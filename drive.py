@@ -1,12 +1,9 @@
 #!/usr/bin/python
 import os
 import httplib2
-import pprint
 import mimetypes
 import time
 import sys
-import pymongo
-import string
 from pymongo import MongoClient
 from apiclient.discovery import build
 from apiclient.http import MediaFileUpload
@@ -22,7 +19,7 @@ OAUTH_SCOPE = 'https://www.googleapis.com/auth/drive'
 REDIRECT_URI = 'urn:ietf:wg:oauth:2.0:oob'
 
 
-def initialize_db(drive_servicei, log_file):
+def initialize_db(drive_service, log_file):
     # Populate database with the current metadata
     client = MongoClient()
     db = client.drivedb
@@ -30,7 +27,12 @@ def initialize_db(drive_servicei, log_file):
     json_info = db.drivedb
     file_list = drive_service.files().list().execute()['items']
     for i in range(len(file_list)):
-        temp_dict = dict((k,file_list[i][k]) for k in ('id', 'title', 'parents', 'createdDate', 'modifiedDate'))
+        temp_dict = dict((k, file_list[i][k])
+                         for
+                         k
+                         in
+                         ('id', 'title', 'parents',
+                         'createdDate', 'modifiedDate'))
         json_id = json_info.insert(temp_dict)
     write_str = time.strftime("%m.%d.%y %H:%M ", time.localtime())
     write_str += 'Database populated!\n'
@@ -46,8 +48,9 @@ def authorize():
         credentials = storage.get()
     else:
         # Create a flow object to get user authentication
-        flow = OAuth2WebServerFlow(os.environ['CLIENT_ID'], os.environ['CLIENT_SECRET'], OAUTH_SCOPE,
-                                                      redirect_uri=REDIRECT_URI)
+        flow = OAuth2WebServerFlow(os.environ['CLIENT_ID'],
+                                   os.environ['CLIENT_SECRET'],
+                                   OAUTH_SCOPE, redirect_uri=REDIRECT_URI)
         authorize_url = flow.step1_get_authorize_url()
         print 'Go to the following link in your browser: ' + authorize_url
         code = raw_input('Enter verification code: ').strip()
@@ -64,7 +67,32 @@ def authorize():
     return drive_service
 
 
-def upload(file_name, drive_service, json_info, flag = True, parent_id = None):
+def download(drive_service, file_id):
+    try:
+        file = drive_service.files().get(fileId=file_id).execute()
+    except errors.HttpError, error:
+        print 'An error occured: %s' % error
+
+    download_url = file.get('downloadUrl')
+    title = file.get('title')
+    if download_url:
+        resp, content = drive_service._http.request(download_url)
+        if resp.status == 200:
+            print 'Status: %s' % resp
+            print title
+            # need to set path properly
+            f = open(title, 'w')
+            f.write(content)
+            f.close()
+        else:
+            print 'An error occurred: %s' % resp
+            return None
+    else:
+        # The file doesn't have any content stored on drive
+        return None
+
+
+def upload(file_name, drive_service, json_info, flag=True, parent_id=None):
     # Upload a file
     if flag:
         k = file_name.rfind('/') + 1
@@ -72,7 +100,8 @@ def upload(file_name, drive_service, json_info, flag = True, parent_id = None):
         mime_type = mimetypes.guess_type(file_name)
         if mime_type == (None, None):
             mime_type = 'text/plain'
-        media_body = MediaFileUpload(file_name, mimetype = mime_type, resumable = True)
+        media_body = MediaFileUpload(file_name,
+                                     mimetype=mime_type, resumable=True)
     else:
         # It is a folder, set appropriate mime type
         fname = file_name
@@ -86,13 +115,19 @@ def upload(file_name, drive_service, json_info, flag = True, parent_id = None):
         body['parents'] = [{'id': parent_id}]
     # Upload the returned metadata to mongodb
     try:
-        file = drive_service.files().insert(body=body, media_body=media_body).execute()
-        temp_dict = dict((k, file[k]) for k in ('id', 'title', 'createdDate', 'modifiedDate'))
+        file = drive_service.files().insert(body=body,
+                                            media_body=media_body).execute()
+        temp_dict = dict((k, file[k])
+                         for
+                         k
+                         in
+                         ('id', 'title', 'createdDate', 'modifiedDate'))
         json_id = json_info.insert(temp_dict)
     except errors.HttpError, error:
         print 'An error occured: %s' % error
 
-def update(file_name, drive_service, json_info, parent_id = None):
+
+def update(file_name, drive_service, json_info, parent_id=None):
     # Update existing file
     try:
         k = file_name.rfind('/') + 1
@@ -107,23 +142,25 @@ def update(file_name, drive_service, json_info, parent_id = None):
             else:
                 if parent_id is None:
                     file_id = entries['id']
-        file = drive_service.files().get(fileId = file_id).execute()
+        file = drive_service.files().get(fileId=file_id).execute()
         mime_type = mimetypes.guess_type(file_name)
         if mime_type == (None, None):
             mime_type = 'text/plain'
-        media_body = MediaFileUpload(file_name, mimetype = mime_type, resumable = True)
+        media_body = MediaFileUpload(file_name,
+                                     mimetype=mime_type, resumable=True)
         body = {
             'title': file_name,
             'description': '',
             'mimeType': mime_type
         }
         # Send file
-        updated_file = drive_service.files().update(fileId = file_id, body = file, media_body = media_body).execute()
+        updated_file = drive_service.files().update(fileId=file_id, body=file,
+                                                    media_body=media_body).execute()
     except errors.HttpError, error:
         print 'An error has occured: %s' % error
 
 
-def delete(file_name, drive_service, json_info, parent_id = None):
+def delete(file_name, drive_service, json_info, parent_id=None):
     cursor = json_info.find({'title': file_name})
     for entries in cursor:
         # delete all files with the file name
@@ -132,13 +169,13 @@ def delete(file_name, drive_service, json_info, parent_id = None):
             if entries['parents'][0]['id'] == parent_id:
                 json_info.remove({'title': file_name})
                 try:
-                    drive_service.files().delete(fileId = file_id).execute()
+                    drive_service.files().delete(fileId=file_id).execute()
                 except errors.HttpError, error:
                     print 'An error occurred: %s' % error
         else:
             json_info.remove({'title': file_name})
             try:
-                drive_service.files().delete(fileId = file_id).execute()
+                drive_service.files().delete(fileId=file_id).execute()
             except errors.HttpError, error:
                 print 'An error occured: %s' % error
 
@@ -149,27 +186,33 @@ def watch(path, interval, drive_service, json_info, log_file):
     before_dir = {}
     after_dir = {}
     after_file = {}
-    for root, dirs, files in os.walk(path, topdown = True):
+    for root, dirs, files in os.walk(path, topdown=True):
         dirs[:] = [d for d in dirs if d not in forbidden]
         before_file[root] = dict([(f, time.ctime(os.path.getmtime(os.path.join(root, f))))
-                                  for f in files if f not in forbidden and not '.swp' in f])
+                                  for f in files if f not in forbidden and '.swp' not in f])
         before_dir[root] = dict([(f, time.ctime(os.path.getmtime(os.path.join(root, f))))
-                                 for f in dirs if f not in forbidden and not '.swp' in f])
+                                 for f in dirs if f not in forbidden and '.swp' not in f])
     while True:
         time.sleep(interval)
-        for root, dirs, files in os.walk(path, topdown = True):
+        for root, dirs, files in os.walk(path, topdown=True):
             dirs[:] = [d for d in dirs if d not in forbidden]
             after_file[root] = dict([(f, time.ctime(os.path.getmtime(os.path.join(root, f))))
-                                     for f in files if f not in forbidden and not '.swp' in f])
+                                     for f in files if f not in forbidden and '.swp' not in f])
             after_dir[root] = dict([(f, time.ctime(os.path.getmtime(os.path.join(root, f))))
-                                    for f in dirs if f not in forbidden and not '.swp' in f])
+                                    for f in dirs if f not in forbidden and '.swp' not in f])
             # Get list of files changed since last check
-            added_file = [f for f in after_file[root] if not f in before_file[root]]
-            removed_file = [f for f in before_file[root] if not f in after_file[root]]
-            modified_file = [f for f in before_file[root] if f in after_file[root] and before_file[root][f]!=after_file[root][f]]
+            added_file = [f for f in after_file[root] if f not in before_file[root]]
+            removed_file = [f for f in before_file[root] if f not in after_file[root]]
+            modified_file = [f
+                             for
+                             f
+                             in
+                             before_file[root] if f in after_file[root]
+                             and
+                             before_file[root][f] != after_file[root][f]]
             # Get list of directories changed since last check
-            added_dir = [f for f in after_dir[root] if not f in before_dir[root]]
-            removed_dir = [f for f in before_dir[root] if not f in after_dir[root]]
+            added_dir = [f for f in after_dir[root] if f not in before_dir[root]]
+            removed_dir = [f for f in before_dir[root] if f not in after_dir[root]]
             if added_file:
                 k = root.rfind('/') + 1
                 title = root[k:]
@@ -179,7 +222,7 @@ def watch(path, interval, drive_service, json_info, log_file):
                 else:
                     parent_id = parent_info['id']
                 for f in added_file:
-                    upload(os.path.join(root, f), drive_service, json_info, flag = True, parent_id = parent_id)
+                    upload(os.path.join(root, f), drive_service, json_info, flag=True, parent_id=parent_id)
                     write_str = time.strftime("%m.%d.%y %H:%M ", time.localtime())
                     write_str += 'Uploaded (new) file: ' + os.path.join(root, f) + '\n'
                     log_file.write(write_str)
@@ -192,7 +235,7 @@ def watch(path, interval, drive_service, json_info, log_file):
                 else:
                     parent_id = parent_info['id']
                 for f in modified_file:
-                    update(os.path.join(root, f), drive_service, json_info, parent_id = parent_id)
+                    update(os.path.join(root, f), drive_service, json_info, parent_id=parent_id)
                     write_str = time.strftime("%m.%d.%y %H:%M ", time.localtime())
                     write_str += 'Uploaded (modified) file: ' + os.path.join(root, f) + '\n'
                     log_file.write(write_str)
@@ -205,7 +248,7 @@ def watch(path, interval, drive_service, json_info, log_file):
                 else:
                     parent_id = None
                 for f in removed_file:
-                    delete(f, drive_service, json_info, parent_id = parent_id)
+                    delete(f, drive_service, json_info, parent_id=parent_id)
                     write_str = time.strftime("%m.%d.%y %H:%M ", time.localtime())
                     write_str += 'Removed file: ' + os.path.join(root, f) + '\n'
                     log_file.write(write_str)
@@ -218,9 +261,9 @@ def watch(path, interval, drive_service, json_info, log_file):
                 else:
                     parent_id = parent_info['id']
                 for f in added_dir:
-                    upload(f, drive_service, json_info, flag = False, parent_id = parent_id)
+                    upload(f, drive_service, json_info, flag=False, parent_id=parent_id)
                     before_dir[os.path.join(root, f)] = {}
-                    before_file[os.path.join(root, f)] ={}
+                    before_file[os.path.join(root, f)] = {}
                     write_str = time.strftime("%m.%d.%y %H:%M ", time.localtime())
                     write_str += 'Uploaded (new) directory: ' + os.path.join(root, f) + '\n'
                     log_file.write(write_str)
