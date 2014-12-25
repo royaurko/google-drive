@@ -6,7 +6,7 @@ still very much a work in progress.
 ##System Requirements:
 
 * python 2.7
-* mongoDB
+* [mongoDB] (http://www.mongodb.org/)
 
 ##Usage:
 
