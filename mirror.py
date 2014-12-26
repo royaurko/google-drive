@@ -1,15 +1,4 @@
-import os
-import httplib2
-import mimetypes
-import time
-import sys
-from pymongo import MongoClient
-from apiclient.discovery import build
-from apiclient.http import MediaFileUpload
-from apiclient import errors
-from oauth2client.client import OAuth2WebServerFlow
-from oauth2client.file import Storage
-
+from download import download_file, download_dir
 
 def mirror(path, drive_service, json_info):
     # Mirror remote content into the folder pointed by path
