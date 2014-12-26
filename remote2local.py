@@ -1,9 +1,16 @@
+'''
+
+This file contains all the functions that propagate changes from remote to local.
+
+'''
+
 import os
+import time
+from apiclient import errors
 
 def download_dir(path, drive_service, json_info, mongo_id):
     json_info.update({'_id': mongo_id}, {"$set": {'path': path}})
     if not os.path.exists(path):
-        print 'Making directory: ' + path
         os.makedirs(path)
     return json_info
 
@@ -39,42 +46,64 @@ def download_file(path, drive_service, json_info, file_id, parent_id=None):
         return json_info
 
 
-def mirror(path, drive_service, json_info):
-    # Mirror remote content into the folder pointed by path
-    cursor = json_info.find()
-    # first download all the directories
+def mirror_dir(cursor, path, drive_service, json_info, log_file):
     for entry in cursor:
         if entry['parents']:
+            # Only download folders that have well defined parents
             if entry['mimeType'] == 'application/vnd.google-apps.folder':
-                # This means it is a directory
+                # Only download folders
                 if entry['parents'][0]['isRoot']:
                     # These folders are in the root directory
                     dir_path = path + '/' + entry['title']
                     mongo_id = entry['_id']
                     json_info = download_dir(dir_path, drive_service, json_info, mongo_id)
                 else:
-                    # These are subdirectories
+                    # These are subdirectories of directories inside the root
                     current_id = entry['id']
                     dir_path = ''
-                    flag = True
+                    flag = False
+                    broken = False
                     while not flag:
+                        # Attempts to find the relative path by examining
+                        # ancestors
                         current_entry = json_info.find_one({'id': current_id})
-                        print current_entry
-                        if current_entry['parents']:
-                            # Update flag to that of its parent
-                            dir_path = current_entry['title'] + '/' + dir_path
-                            current_id = current_entry['parents'][0]['id']
-                            flag = current_entry['parents'][0]['isRoot']
+                        if current_entry is None:
+                            json_info.update({'id': current_id}, {"$set": {'broken': True}})
+                            broken = True
+                            break
+                        if 'parents' in current_entry:
+                            if current_entry['parents']:
+                                # Update flag to that of its parent
+                                dir_path = current_entry['title'] + '/' + dir_path
+                                current_id = current_entry['parents'][0]['id']
+                                flag = current_entry['parents'][0]['isRoot']
+                            else:
+                                #Broken link
+                                json_info.update({'id': current_id}, {"$set": {'broken': True}})
+                                broken = True
+                                break
                         else:
                             # Broken link
+                            json_info.update({'id': current_id}, {"$set": {'broken': True}})
+                            broken = True
                             break
-                    dir_path = path + '/' + dir_path
-                    mongo_id = entry['_id']
-                    json_info = download_dir(dir_path, drive_service, json_info, mongo_id)
-    # Download files to appropriate folders
-    cursor = json_info.find()
+                    if not broken:
+                        dir_path = path + '/' + dir_path
+                        mongo_id = entry['_id']
+                        json_info = download_dir(dir_path, drive_service, json_info, mongo_id)
+                        write_str = time.strftime("%m.%d.%y %H:%M ", time.localtime())
+                        write_str += 'Downloaded directory: ' + dir_path + '\n'
+                        log_file.write(write_str)
+                    else:
+                        json_info.update({'id': entry['id']}, {"$set": {'broken': True}})
+                        write_str = 'Orphan directory: ' + entry['title'] + '\n'
+                        log_file.write(write_str)
+    tmp_cursor = json_info.find({'broken': True, 'mimeType': 'application/vnd.google-apps.folder'})
+
+
+def mirror_file(cursor, path, drive_service, json_info, log_file):
     for entry in cursor:
-        print 'Looking at: ' + entry['title']
+        print 'Examining file: ' + entry['title']
         if entry['parents']:
             # Do not download objects without parent attribute
             if entry['mimeType'] != 'application/vnd.google-apps.folder':
@@ -88,12 +117,26 @@ def mirror(path, drive_service, json_info):
                     parent_id = entry['parents'][0]['id']
                     parent_info = json_info.find_one({'id': parent_id})
                     if parent_info is not None:
-                        print parent_info
-                        if 'path' in parent_info:
-                            if parent_info['path'] is not None:
+                        # print parent_info
+                        if 'path' in parent_info and 'broken' in parent_info:
+                            if parent_info['path'] is not None and not parent_info['broken']:
                                 # This means the parent has already been downloaded
-                                print parent_info['path']
                                 mongo_id = entry['_id']
                                 json_info = download_file(parent_info['path'], drive_service, json_info, entry['id'])
+                                filepath = parent_info['path'] + '/' + entry['title']
+                                write_str = time.strftime("%m.%d.%y %H:%M ", time.localtime())
+                                write_str += 'Downloaded file: ' + filepath + '\n'
+                                log_file.write(write_str)
+    return json_info
+
+
+def mirror(path, drive_service, json_info, log_file):
+    # Mirror remote content into the folder pointed by path
+    cursor = json_info.find({'mimeType':'application/vnd.google-apps.folder'})
+    # first download all the directories
+    mirror_dir(cursor, path, drive_service, json_info, log_file)
+    # Download files to appropriate folders
+    cursor = json_info.find()
+    mirror_file(cursor, path, drive_service, json_info, log_file)
     return json_info
 

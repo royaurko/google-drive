@@ -1,3 +1,9 @@
+'''
+
+This file contains all the functions that propagate changes from the local directory to the remote copy
+
+'''
+
 
 def upload(file_name, drive_service, json_info, flag=True, parent_id=None):
     # Upload a file

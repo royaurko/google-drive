@@ -35,6 +35,7 @@ def initialize_db(drive_service, log_file):
                          ('id', 'title', 'parents',
                          'mimeType', 'createdDate', 'modifiedDate'))
         temp_dict['path'] = None
+        temp_dict['broken'] = False
         json_id = json_info.insert(temp_dict)
     write_str = time.strftime("%m.%d.%y %H:%M ", time.localtime())
     write_str += 'Database populated!\n'
@@ -169,19 +170,23 @@ def watch(path, interval, drive_service, json_info, log_file):
 
 def helpmenu():
     print '\nUsage: ./drive.py [Optional Options...]\n'
+    print '\nOptional Flag:\n'
     print '\nOptional Options:\n'
     print '-t Time interval to sync\n'
-    print '-f Folder to sync\n'
+    print '-p Path to the local folder\n'
 
 
 if __name__ == '__main__':
     flag = 0
+    first_time = 'x'
+    while (first_time != 'y') and (first_time != 'n'):
+        first_time = raw_input('Is this the first time running this program? [y/n]: ')
     if len(sys.argv) == 1:
         path = os.getcwd()
         interval = 10
         flag = 1
     elif len(sys.argv) == 3:
-        if sys.argv[1] == '-f':
+        if sys.argv[1] == '-p':
             path = sys.argv[2]
             interval = 10
             flag = 1
@@ -192,7 +197,7 @@ if __name__ == '__main__':
         else:
             helpmenu()
     elif len(sys.argv) == 5:
-        if sys.argv[1] == '-t' and sys.argv[3] == '-f':
+        if sys.argv[1] == '-t' and sys.argv[3] == '-p':
             interval = float(sys.argv[2])
             path = sys.argv[4]
             flag = 1
@@ -211,5 +216,7 @@ if __name__ == '__main__':
         write_str += 'Time interval between syncs: ' + str(interval) + '\n'
         log_file.write(write_str)
         json_info = initialize_db(drive_service, log_file)
-        mirror(path, drive_service, json_info)
-        # watch(path, interval, drive_service, json_info, log_file)
+        if first_time == 'y':
+            log_file.write('Attempting to download all files and folders from Drive to your local folder...\n')
+            mirror(path, drive_service, json_info, log_file)
+        watch(path, interval, drive_service, json_info, log_file)
