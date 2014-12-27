@@ -1,13 +1,10 @@
 #!/usr/bin/python
 import os
 import httplib2
-import mimetypes
 import time
 import sys
 from pymongo import MongoClient
 from apiclient.discovery import build
-from apiclient.http import MediaFileUpload
-from apiclient import errors
 from oauth2client.client import OAuth2WebServerFlow
 from oauth2client.file import Storage
 from remote2local import mirror
@@ -134,7 +131,7 @@ def watch(path, interval, drive_service, json_info, log_file):
             if removed_file:
                 k = root.rfind('/') + 1
                 title = root[k:]
-                cursor = json_info.find_one({'title': title})
+                parent_info = json_info.find_one({'title': title})
                 if parent_info is None:
                     parent_id = None
                 else:

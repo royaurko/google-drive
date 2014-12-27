@@ -4,6 +4,9 @@ This file contains all the functions that propagate changes from the local direc
 
 '''
 
+import mimetypes
+from apiclient.http import MediaFileUpload
+from apiclient import errors
 
 def upload(file_name, drive_service, json_info, flag=True, parent_id=None):
     # Upload a file
