@@ -1,7 +1,8 @@
 ##Description:
 
-A python script that runs in the background and syncs a local folder to Google Drive like Dropbox. This is
-still very much a work in progress.
+A bunch of python scripts to make Google Drive behave like Dropbox. When run for the first time
+the script attempts to download all files from Drive to the target folder, after which it keeps checking for 
+changes in the local directory at regular intervals and mirrors it to Drive. This is still very much a work in progress.
 
 ##System Requirements:
 
