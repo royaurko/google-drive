@@ -23,6 +23,11 @@ Optional Options:
 
 ```
 
+* The script will ask you whether this is the first time you are running it, in which case it will attempt to download
+the files and folders from remote to your local target directory.
+
+* The script will not download any folders, subfolders, files that are not owned by you.
+
 * By default the script monitors the folder where the script is located and the time interval between syncs is 10 seconds.
 
 * The script maintains a log file named *log* which is located in the same directory as the script.   

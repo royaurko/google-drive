@@ -72,6 +72,7 @@ def authorize():
 
 
 def watch(path, interval, drive_service, json_info, log_file):
+    print 'Monitoring local folder for changes...'
     forbidden = ['.git', '.credentials', 'log', 'drive.py', '.ropeproject']
     before_file = {}
     before_dir = {}
@@ -173,7 +174,7 @@ def helpmenu():
     print '\nOptional Flag:\n'
     print '\nOptional Options:\n'
     print '-t Time interval to sync\n'
-    print '-p Path to the local folder\n'
+    print '-f Path to the local folder\n'
 
 
 if __name__ == '__main__':
@@ -186,7 +187,7 @@ if __name__ == '__main__':
         interval = 10
         flag = 1
     elif len(sys.argv) == 3:
-        if sys.argv[1] == '-p':
+        if sys.argv[1] == '-f':
             path = sys.argv[2]
             interval = 10
             flag = 1
@@ -197,7 +198,7 @@ if __name__ == '__main__':
         else:
             helpmenu()
     elif len(sys.argv) == 5:
-        if sys.argv[1] == '-t' and sys.argv[3] == '-p':
+        if sys.argv[1] == '-t' and sys.argv[3] == '-f':
             interval = float(sys.argv[2])
             path = sys.argv[4]
             flag = 1

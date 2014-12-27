@@ -8,14 +8,17 @@ import os
 import time
 from apiclient import errors
 
-def download_dir(path, drive_service, json_info, mongo_id):
+def download_dir(path, drive_service, json_info, mongo_id, log_file):
     json_info.update({'_id': mongo_id}, {"$set": {'path': path}})
     if not os.path.exists(path):
+        write_str = time.strftime("%m.%d.%y %H:%M ", time.localtime())
+        write_str += 'Downloaded directory: ' + path + '\n'
+        log_file.write(write_str)
         os.makedirs(path)
     return json_info
 
 
-def download_file(path, drive_service, json_info, file_id, parent_id=None):
+def download_file(path, drive_service, json_info, file_id, log_file, parent_id=None):
     try:
         file = drive_service.files().get(fileId=file_id).execute()
     except errors.HttpError, error:
@@ -26,24 +29,23 @@ def download_file(path, drive_service, json_info, file_id, parent_id=None):
     if not os.path.exists(path):
         if parent_id is not None:
             mongo_id = json_info.find_one({'id': parent_id})['_id']
-            download_dir(path, drive_service, json_info, mongo_id)
+            download_dir(path, drive_service, json_info, mongo_id, log_file)
     title = path + '/' + file.get('title')
     if download_url:
         resp, content = drive_service._http.request(download_url)
         if resp.status == 200:
             # need to set path properly
-            print 'Downloading: ' + title
-            f = open(title, 'w')
-            f.write(content)
-            f.close()
-            json_info.update({'id': file_id}, {"$set": {'path': path}})
-            return json_info
+            if not os.path.isfile(title):
+                f = open(title, 'w')
+                f.write(content)
+                f.close()
+                write_str = time.strftime("%m.%d.%y %H:%M ", time.localtime())
+                write_str += 'Downloaded file: ' + title + '\n'
+                log_file.write(write_str)
+                json_info.update({'id': file_id}, {"$set": {'path': path}})
         else:
             print 'An error occurred: %s' % resp
-            return json_info
-    else:
-        # The file doesn't have any content stored on drive
-        return json_info
+    return json_info
 
 
 def mirror_dir(cursor, path, drive_service, json_info, log_file):
@@ -56,7 +58,7 @@ def mirror_dir(cursor, path, drive_service, json_info, log_file):
                     # These folders are in the root directory
                     dir_path = path + '/' + entry['title']
                     mongo_id = entry['_id']
-                    json_info = download_dir(dir_path, drive_service, json_info, mongo_id)
+                    json_info = download_dir(dir_path, drive_service, json_info, mongo_id, log_file)
                 else:
                     # These are subdirectories of directories inside the root
                     current_id = entry['id']
@@ -90,10 +92,7 @@ def mirror_dir(cursor, path, drive_service, json_info, log_file):
                     if not broken:
                         dir_path = path + '/' + dir_path
                         mongo_id = entry['_id']
-                        json_info = download_dir(dir_path, drive_service, json_info, mongo_id)
-                        write_str = time.strftime("%m.%d.%y %H:%M ", time.localtime())
-                        write_str += 'Downloaded directory: ' + dir_path + '\n'
-                        log_file.write(write_str)
+                        json_info = download_dir(dir_path, drive_service, json_info, mongo_id, log_file)
                     else:
                         json_info.update({'id': entry['id']}, {"$set": {'broken': True}})
                         write_str = 'Orphan directory: ' + entry['title'] + '\n'
@@ -111,7 +110,7 @@ def mirror_file(cursor, path, drive_service, json_info, log_file):
                 if entry['parents'][0]['isRoot']:
                     # If it is in the root
                     parent_id = entry['parents'][0]['id']
-                    json_info = download_file(path, drive_service, json_info, entry['id'], parent_id=parent_id)
+                    json_info = download_file(path, drive_service, json_info, entry['id'], log_file, parent_id=parent_id)
                 else:
                     # Figure out its parent, see if it is downloaded already
                     parent_id = entry['parents'][0]['id']
@@ -122,11 +121,7 @@ def mirror_file(cursor, path, drive_service, json_info, log_file):
                             if parent_info['path'] is not None and not parent_info['broken']:
                                 # This means the parent has already been downloaded
                                 mongo_id = entry['_id']
-                                json_info = download_file(parent_info['path'], drive_service, json_info, entry['id'])
-                                filepath = parent_info['path'] + '/' + entry['title']
-                                write_str = time.strftime("%m.%d.%y %H:%M ", time.localtime())
-                                write_str += 'Downloaded file: ' + filepath + '\n'
-                                log_file.write(write_str)
+                                json_info = download_file(parent_info['path'], drive_service, json_info, log_file, entry['id'])
     return json_info
 
 
@@ -139,4 +134,3 @@ def mirror(path, drive_service, json_info, log_file):
     cursor = json_info.find()
     mirror_file(cursor, path, drive_service, json_info, log_file)
     return json_info
-
