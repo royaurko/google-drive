@@ -41,7 +41,7 @@ the files and folders from remote to your local target directory.
 
 ##Todo:
 
-* Check issues if there are different files with same name etc
-* Download files and folders added remotely to local folder
+* Fix some issues with deletion (files with same name under different folders)
+* While uploading, check if file or folder exists already, return error in that case
 * Update, delete files locally when updated, deleted remotely
 

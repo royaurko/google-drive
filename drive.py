@@ -111,10 +111,7 @@ def watch(path, interval, drive_service, json_info, log_file):
                 else:
                     parent_id = parent_info['id']
                 for f in added_file:
-                    upload(os.path.join(root, f), drive_service, json_info, flag=True, parent_id=parent_id)
-                    write_str = time.strftime("%m.%d.%y %H:%M ", time.localtime())
-                    write_str += 'Uploaded (new) file: ' + os.path.join(root, f) + '\n'
-                    log_file.write(write_str)
+                    upload(os.path.join(root, f), drive_service, json_info, log_file, flag=True, parent_id=parent_id)
             if modified_file:
                 k = root.rfind('/') + 1
                 title = root[k:]
@@ -124,10 +121,7 @@ def watch(path, interval, drive_service, json_info, log_file):
                 else:
                     parent_id = parent_info['id']
                 for f in modified_file:
-                    update(os.path.join(root, f), drive_service, json_info, parent_id=parent_id)
-                    write_str = time.strftime("%m.%d.%y %H:%M ", time.localtime())
-                    write_str += 'Uploaded (modified) file: ' + os.path.join(root, f) + '\n'
-                    log_file.write(write_str)
+                    update(os.path.join(root, f), drive_service, json_info, log_file, parent_id=parent_id)
             if removed_file:
                 k = root.rfind('/') + 1
                 title = root[k:]
@@ -137,10 +131,7 @@ def watch(path, interval, drive_service, json_info, log_file):
                 else:
                     parent_id = None
                 for f in removed_file:
-                    delete(f, drive_service, json_info, parent_id=parent_id)
-                    write_str = time.strftime("%m.%d.%y %H:%M ", time.localtime())
-                    write_str += 'Removed file: ' + os.path.join(root, f) + '\n'
-                    log_file.write(write_str)
+                    delete(f, drive_service, json_info, log_file, parent_id=parent_id)
             if added_dir:
                 k = root.rfind('/') + 1
                 title = root[k:]
@@ -150,18 +141,12 @@ def watch(path, interval, drive_service, json_info, log_file):
                 else:
                     parent_id = parent_info['id']
                 for f in added_dir:
-                    upload(f, drive_service, json_info, flag=False, parent_id=parent_id)
+                    upload(f, drive_service, json_info, log_file, flag=False, parent_id=parent_id)
                     before_dir[os.path.join(root, f)] = {}
                     before_file[os.path.join(root, f)] = {}
-                    write_str = time.strftime("%m.%d.%y %H:%M ", time.localtime())
-                    write_str += 'Uploaded (new) directory: ' + os.path.join(root, f) + '\n'
-                    log_file.write(write_str)
             if removed_dir:
                 for f in removed_dir:
-                    delete(f, drive_service, json_info)
-                    write_str = time.strftime("%m.%d.%y %H:%M ", time.localtime())
-                    write_str += 'Removed directory: ' + os.path.join(root, f) + '\n'
-                    log_file.write(write_str)
+                    delete(f, drive_service, json_info, log_file)
             before_file[root] = after_file[root]
             before_dir[root] = after_dir[root]
 
@@ -211,7 +196,7 @@ if __name__ == '__main__':
         drive_service = authorize()
         log_file = open('log', 'wb', 0)
         write_str = 'Monitoring folder: ' + path + '\n'
-        write_str += 'Time interval between syncs: ' + str(interval) + '\n'
+        write_str += 'Time interval between syncs: ' + str(interval) + ' sec\n'
         log_file.write(write_str)
         json_info = initialize_db(drive_service, log_file)
         if first_time == 'y':
