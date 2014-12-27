@@ -11,24 +11,20 @@ from apiclient.http import MediaFileUpload
 from apiclient import errors
 
 def upload(file_name, drive_service, json_info, log_file, flag=True, parent_id=None):
-    # Upload a file
+    # Function to upload a file
+    # Before uploading check if the file already exists in drive
+    k = file_name.rfind('/') + 1
+    fname = file_name[k:]
+    cursor = json_info.find({'title': fname, 'path': file_name})
+    if cursor.count() > 1:
+        return json_info
     if flag:
-        k = file_name.rfind('/') + 1
-        fpath = file_name[:k-1]
-        print fpath
-        fname = file_name[k:]
-        if os.path.isfile(file_name):
-            return json_info
         mime_type = mimetypes.guess_type(file_name)
         if mime_type == (None, None):
             mime_type = 'text/plain'
         media_body = MediaFileUpload(file_name,
                                      mimetype=mime_type, resumable=True)
     else:
-        # It is a folder, set appropriate mime type
-        if os.path.isdir(file_name):
-            return json_info
-        fname = file_name
         media_body = None
         mime_type = 'application/vnd.google-apps.folder'
     body = {
@@ -47,38 +43,34 @@ def upload(file_name, drive_service, json_info, log_file, flag=True, parent_id=N
                          in
                          ('id', 'title', 'parents',
                           'mimeType', 'createdDate', 'modifiedDate'))
+        temp_dict['path'] = file_name
+        temp_dict['broken'] = False
+        write_str = time.strftime("%m.%d.%y %H:%M ", time.localtime())
         if flag:
-            temp_dict['path'] = fpath
-            temp_dict['broken'] = False
-            write_str = time.strftime("%m.%d.%y %H:%M ", time.localtime())
             write_str += 'Uploaded (new) file: ' + file_name + '\n'
             log_file.write(write_str)
         else:
-            temp_dict['path'] = file_name
-            temp_dict['broken'] = False
-            write_str = time.strftime("%m.%d.%y %H:%M ", time.localtime())
             write_str += 'Uploaded (new) directory: ' + file_name + '\n'
             log_file.write(write_str)
         json_id = json_info.insert(temp_dict)
     except errors.HttpError, error:
         print 'An error occured: %s' % error
+    return json_info
 
 
-def update(file_name, drive_service, json_info, log_file, parent_id=None):
-    # Update existing file
+def update(file_name, drive_service, json_info, log_file):
+    # Update existing file, find entry in database, check if path matches
     try:
         k = file_name.rfind('/') + 1
         fname = file_name[k:]
-        cursor = json_info.find({'title': fname})
-        file_id = ''
+        fpath = file_name[:k-1]
+        cursor = json_info.find({'title': fname, 'path': fpath})
+        count = 0
         for entries in cursor:
-            if 'parents' in entries:
-                if parent_id == entries['parents'][0]['id']:
-                    file_id = entries['id']
-                    print 'here'
-            else:
-                if parent_id is None:
-                    file_id = entries['id']
+            count += 1
+            file_id = entries['id']
+        if count > 1:
+            print 'Ambiguous entry'
         file = drive_service.files().get(fileId=file_id).execute()
         mime_type = mimetypes.guess_type(file_name)
         if mime_type == (None, None):
@@ -93,32 +85,67 @@ def update(file_name, drive_service, json_info, log_file, parent_id=None):
         # Send file
         updated_file = drive_service.files().update(fileId=file_id, body=file,
                                                     media_body=media_body).execute()
+        # Update last modified date in the database entry for this file
+        file = drive_service.files().get(fileId=file_id).execute()
+        modifiedDate = file.get('modifiedDate')
+        json_info.update({'id': file_id}, {"$set": {'modifiedDate': modifiedDate}})
+        # Write log entry
         write_str = time.strftime("%m.%d.%y %H:%M ", time.localtime())
         write_str += 'Uploaded (modified) file: ' + file_name + '\n'
         log_file.write(write_str)
     except errors.HttpError, error:
         print 'An error has occured: %s' % error
+    return json_info
 
 
-def delete(file_name, drive_service, json_info, log_file, parent_id=None):
-    cursor = json_info.find({'title': file_name})
-    for entries in cursor:
-        # delete all files with the file name
-        file_id = entries['id']
-        if 'parents' in entries:
-            if entries['parents'][0]['id'] == parent_id:
-                json_info.remove({'title': file_name})
-                try:
-                    drive_service.files().delete(fileId=file_id).execute()
-                except errors.HttpError, error:
-                    print 'An error occurred: %s' % error
-        else:
-            json_info.remove({'title': file_name})
-            try:
-                drive_service.files().delete(fileId=file_id).execute()
-                write_str = time.strftime("%m.%d.%y %H:%M ", time.localtime())
-                write_str += 'Deleted: ' + file_name + '\n'
-                log_file.write(write_str)
-            except errors.HttpError, error:
-                print 'An error occured: %s' % error
+def delete(file_name, drive_service, json_info, log_file):
+    # Delete individual file or folder
+    k = file_name.rfind('/') + 1
+    fname = file_name[k:]
+    cursor = json_info.find({'title': fname, 'path': file_name})
+    for entry in cursor:
+        # delete all files with matching file_name (includes path)
+        file_id = entry['id']
+        try:
+            drive_service.files().delete(fileId=file_id).execute()
+            json_info.remove({'id': entry['id']})
+            write_str = time.strftime("%m.%d.%y %H:%M ", time.localtime())
+            write_str += 'Deleted: ' + file_name + '\n'
+            log_file.write(write_str)
+        except errors.HttpError, error:
+            print 'An error occurred: %s' % error
+    return json_info
 
+
+def purge(file_name, drive_service, json_info, log_file):
+    # Delete file or folder and all the resulting orphans
+    cursor = json_info.find({'path': file_name})
+    if cursor.count() == 0:
+        return json_info
+    for entry in cursor:
+        file_id = entry['id']
+        if entry['mimeType'] != 'application/vnd.google-apps.folder':
+            #It is a file and so no need to check for orphans
+            json_info = delete(file_name, drive_service, json_info, log_file)
+            return json_info
+    # It must be a folder, check for possible orphans
+    delete_info = set([(file_name, file_id)])
+    flag = True
+    while flag:
+        cursor = json_info.find()
+        old_size = len(delete_info)
+        for entry in cursor:
+            if 'parents' in entry:
+                if entry['parents']:
+                    delete_id = set([f[1] for f in delete_info])
+                    print delete_id
+                    if entry['parents'][0]['id'] in delete_id:
+                        # It has a parent in the list of items to be deleted
+                        delete_info.add((entry['path'], entry['id']))
+        if len(delete_info) == old_size:
+            # No new children found
+            flag = False
+    # Delete all the files and folders accumulated in delete_id
+    for f in delete_info:
+         json_info = delete(f[0], drive_service, json_info, log_file)
+    return json_info

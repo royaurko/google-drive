@@ -41,7 +41,7 @@ def download_file(path, drive_service, json_info, file_id, log_file, parent_id=N
                 write_str = time.strftime("%m.%d.%y %H:%M ", time.localtime())
                 write_str += 'Downloaded file: ' + title + '\n'
                 log_file.write(write_str)
-                json_info.update({'id': file_id}, {"$set": {'path': path}})
+                json_info.update({'id': file_id}, {"$set": {'path': title}})
         else:
             print 'An error occurred: %s' % resp
     return json_info

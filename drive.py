@@ -8,7 +8,7 @@ from apiclient.discovery import build
 from oauth2client.client import OAuth2WebServerFlow
 from oauth2client.file import Storage
 from remote2local import mirror
-from local2remote import upload, update, delete
+from local2remote import upload, update, purge
 # Set CLIENT_ID and CLIENT_SECRET as your environment variables
 
 # Check https://developers.google.com/drive/scopes for all available scopes
@@ -111,42 +111,36 @@ def watch(path, interval, drive_service, json_info, log_file):
                 else:
                     parent_id = parent_info['id']
                 for f in added_file:
-                    upload(os.path.join(root, f), drive_service, json_info, log_file, flag=True, parent_id=parent_id)
+                    json_info = upload(os.path.join(root, f), drive_service, json_info, log_file, flag=True, parent_id=parent_id)
             if modified_file:
                 k = root.rfind('/') + 1
                 title = root[k:]
-                parent_info = json_info.find_one({'title': title})
-                if parent_info is None:
-                    parent_id = None
-                else:
-                    parent_id = parent_info['id']
                 for f in modified_file:
-                    update(os.path.join(root, f), drive_service, json_info, log_file, parent_id=parent_id)
+                    json_info = update(os.path.join(root, f), drive_service, json_info, log_file)
             if removed_file:
                 k = root.rfind('/') + 1
                 title = root[k:]
-                parent_info = json_info.find_one({'title': title})
-                if parent_info is None:
-                    parent_id = None
-                else:
-                    parent_id = None
                 for f in removed_file:
-                    delete(f, drive_service, json_info, log_file, parent_id=parent_id)
+                    file_name = os.path.join(root, f)
+                    json_info = purge(file_name, drive_service, json_info, log_file)
             if added_dir:
                 k = root.rfind('/') + 1
                 title = root[k:]
-                parent_info = json_info.find_one({'title': title})
+                parent_info = json_info.find_one({'title': title, 'path': root})
                 if parent_info is None:
                     parent_id = None
                 else:
                     parent_id = parent_info['id']
                 for f in added_dir:
-                    upload(f, drive_service, json_info, log_file, flag=False, parent_id=parent_id)
-                    before_dir[os.path.join(root, f)] = {}
-                    before_file[os.path.join(root, f)] = {}
+                    file_name = os.path.join(root, f)
+                    json_info = upload(file_name, drive_service, json_info, log_file, flag=False, parent_id=parent_id)
+                    before_dir[file_name] = {}
+                    before_file[file_name] = {}
             if removed_dir:
                 for f in removed_dir:
-                    delete(f, drive_service, json_info, log_file)
+                    file_name = os.path.join(root, f)
+                    print file_name
+                    json_info = purge(file_name, drive_service, json_info, log_file)
             before_file[root] = after_file[root]
             before_dir[root] = after_dir[root]
 
