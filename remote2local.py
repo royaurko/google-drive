@@ -25,7 +25,6 @@ def download_file(path, drive_service, json_info, file_id, log_file, parent_id=N
         print 'An error occured: %s' % error
     download_url = file.get('downloadUrl')
     # In case the directory structure doesn't exist
-    print path
     if not os.path.exists(path):
         if parent_id is not None:
             mongo_id = json_info.find_one({'id': parent_id})['_id']
@@ -102,7 +101,6 @@ def mirror_dir(cursor, path, drive_service, json_info, log_file):
 
 def mirror_file(cursor, path, drive_service, json_info, log_file):
     for entry in cursor:
-        print 'Examining file: ' + entry['title']
         if entry['parents']:
             # Do not download objects without parent attribute
             if entry['mimeType'] != 'application/vnd.google-apps.folder':
@@ -116,7 +114,6 @@ def mirror_file(cursor, path, drive_service, json_info, log_file):
                     parent_id = entry['parents'][0]['id']
                     parent_info = json_info.find_one({'id': parent_id})
                     if parent_info is not None:
-                        # print parent_info
                         if 'path' in parent_info and 'broken' in parent_info:
                             if parent_info['path'] is not None and not parent_info['broken']:
                                 # This means the parent has already been downloaded

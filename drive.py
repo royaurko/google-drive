@@ -218,6 +218,6 @@ if __name__ == '__main__':
         log_file.write(write_str)
         json_info = initialize_db(drive_service, log_file)
         if first_time == 'y':
-            log_file.write('Attempting to download all files and folders from Drive to your local folder...\n')
+            print 'Attempting to download all files and folders from Drive to your local folder...\n'
             mirror(path, drive_service, json_info, log_file)
         watch(path, interval, drive_service, json_info, log_file)
