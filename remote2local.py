@@ -23,6 +23,7 @@ def download_file(path, drive_service, json_info, file_id, log_file, parent_id=N
         file = drive_service.files().get(fileId=file_id).execute()
     except errors.HttpError, error:
         print 'An error occured: %s' % error
+        return json_info
     download_url = file.get('downloadUrl')
     # In case the directory structure doesn't exist
     if not os.path.exists(path):
@@ -94,8 +95,6 @@ def mirror_dir(cursor, path, drive_service, json_info, log_file):
                         json_info = download_dir(dir_path, drive_service, json_info, mongo_id, log_file)
                     else:
                         json_info.update({'id': entry['id']}, {"$set": {'broken': True}})
-                        write_str = 'Orphan directory: ' + entry['title'] + '\n'
-                        log_file.write(write_str)
     tmp_cursor = json_info.find({'broken': True, 'mimeType': 'application/vnd.google-apps.folder'})
 
 

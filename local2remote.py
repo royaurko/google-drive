@@ -138,7 +138,6 @@ def purge(file_name, drive_service, json_info, log_file):
             if 'parents' in entry:
                 if entry['parents']:
                     delete_id = set([f[1] for f in delete_info])
-                    print delete_id
                     if entry['parents'][0]['id'] in delete_id:
                         # It has a parent in the list of items to be deleted
                         delete_info.add((entry['path'], entry['id']))
