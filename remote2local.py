@@ -102,22 +102,19 @@ def refresh(path, drive_service, db, log_file):
         cursor = old_json_info.find({'path': entry1['path']})
         if cursor.count() == 0:
             # This is a new document
-            print 'a file was added!'
             added.add(entry1['id'])
             continue
-        '''
         for entry in cursor:
             if entry['modifiedDate'] != entry1['modifiedDate']:
-                # It was updated, remove old entry from db.drivedb
-                added.add(entry1['id'])
-                old_json_info.remove({'id': entry['id']})
-        '''
+                # Need to compare time stamps to check whether the
+                # latest modification was local or remote
+                # added.add(entry1['id'])
+                # old_json_info.remove({'id': entry['id']})
+                pass
     # Check for deleted files
     for entry2 in old_cursor:
-        print 'old: ' + entry2['path']
         tmp_cursor = new_json_info.find({'path': entry2['path']})
         if cursor.count() == 0:
-            print 'a file was deleted!'
             # This means this entry was deleted
             deleted.add(entry2['id'])
     if added:

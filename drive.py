@@ -18,8 +18,6 @@ OAUTH_SCOPE = 'https://www.googleapis.com/auth/drive'
 REDIRECT_URI = 'urn:ietf:wg:oauth:2.0:oob'
 
 
-
-
 def authorize():
     # Check if credentials already exist
     fname = '.credentials'
@@ -127,6 +125,8 @@ def watch(path, interval, drive_service, db, log_file):
                         file_name = os.path.join(root, f)
                         purge(file_name, drive_service, json_info, log_file)
     except KeyboardInterrupt:
+        db.drop_collection(db.drivedb)
+        db.drop_collection(db.tmpdb)
         raise
 
 
@@ -179,6 +179,6 @@ if __name__ == '__main__':
         log_file.write(write_str)
         db = create_db(path, drive_service, log_file)
         if first_time == 'y':
-            print 'Attempting to download all files and folders from Drive to your local folder...\n'
+            print 'Attempting to download all files and folders from Drive to your local folder...'
             mirror(drive_service, db.drivedb, log_file)
         watch(path, interval, drive_service, db, log_file)
