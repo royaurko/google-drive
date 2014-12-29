@@ -3,12 +3,12 @@ import os
 import httplib2
 import time
 import sys
-from pymongo import MongoClient
 from apiclient.discovery import build
 from oauth2client.client import OAuth2WebServerFlow
 from oauth2client.file import Storage
-from remote2local import mirror
+from remote2local import mirror, refresh
 from local2remote import upload, update, purge
+from db import initialize_db
 # Set CLIENT_ID and CLIENT_SECRET as your environment variables
 
 # Check https://developers.google.com/drive/scopes for all available scopes
@@ -18,27 +18,6 @@ OAUTH_SCOPE = 'https://www.googleapis.com/auth/drive'
 REDIRECT_URI = 'urn:ietf:wg:oauth:2.0:oob'
 
 
-def initialize_db(drive_service, log_file):
-    # Populate database with the current metadata
-    client = MongoClient()
-    db = client.drivedb
-    json_info = db.drivedb
-    file_list = drive_service.files().list().execute()['items']
-    for i in range(len(file_list)):
-        temp_dict = dict((k, file_list[i][k])
-                         for
-                         k
-                         in
-                         ('id', 'title', 'parents',
-                         'mimeType', 'createdDate', 'modifiedDate'))
-        temp_dict['path'] = None
-        temp_dict['broken'] = False
-        json_id = json_info.insert(temp_dict)
-    write_str = time.strftime("%m.%d.%y %H:%M ", time.localtime())
-    write_str += 'Database populated!\n'
-    log_file.write(write_str)
-    print 'Database initialized!'
-    return json_info
 
 
 def authorize():
@@ -69,80 +48,84 @@ def authorize():
 
 
 def watch(path, interval, drive_service, json_info, log_file):
-    print 'Monitoring local folder for changes...'
-    forbidden = ['.git', '.credentials', 'log', 'drive.py', '.ropeproject']
-    before_file = {}
-    before_dir = {}
-    after_dir = {}
-    after_file = {}
-    for root, dirs, files in os.walk(path, topdown=True):
-        dirs[:] = [d for d in dirs if d not in forbidden]
-        before_file[root] = dict([(f, time.ctime(os.path.getmtime(os.path.join(root, f))))
-                                  for f in files if f not in forbidden and '.swp' not in f])
-        before_dir[root] = dict([(f, time.ctime(os.path.getmtime(os.path.join(root, f))))
-                                 for f in dirs if f not in forbidden and '.swp' not in f])
-    while True:
-        time.sleep(interval)
+    try:
+        print 'Monitoring local folder for changes...'
+        forbidden = ['.git', '.credentials', 'log', 'drive.py', '.ropeproject']
+        before_file = {}
+        before_dir = {}
+        after_dir = {}
+        after_file = {}
         for root, dirs, files in os.walk(path, topdown=True):
             dirs[:] = [d for d in dirs if d not in forbidden]
-            after_file[root] = dict([(f, time.ctime(os.path.getmtime(os.path.join(root, f))))
+            before_file[root] = dict([(f, time.ctime(os.path.getmtime(os.path.join(root, f))))
+                                  for f in files if f not in forbidden and '.swp' not in f])
+            before_dir[root] = dict([(f, time.ctime(os.path.getmtime(os.path.join(root, f))))
+                                 for f in dirs if f not in forbidden and '.swp' not in f])
+        while True:
+            time.sleep(interval)
+            #Update remote changes locally
+            json_info = refresh(path, drive_service, json_info, log_file)
+            for root, dirs, files in os.walk(path, topdown=True):
+                dirs[:] = [d for d in dirs if d not in forbidden]
+                after_file[root] = dict([(f, time.ctime(os.path.getmtime(os.path.join(root, f))))
                                      for f in files if f not in forbidden and '.swp' not in f])
-            after_dir[root] = dict([(f, time.ctime(os.path.getmtime(os.path.join(root, f))))
+                after_dir[root] = dict([(f, time.ctime(os.path.getmtime(os.path.join(root, f))))
                                     for f in dirs if f not in forbidden and '.swp' not in f])
-            # Get list of files changed since last check
-            added_file = [f for f in after_file[root] if f not in before_file[root]]
-            removed_file = [f for f in before_file[root] if f not in after_file[root]]
-            modified_file = [f
-                             for
-                             f
-                             in
-                             before_file[root] if f in after_file[root]
-                             and
-                             before_file[root][f] != after_file[root][f]]
-            # Get list of directories changed since last check
-            added_dir = [f for f in after_dir[root] if f not in before_dir[root]]
-            removed_dir = [f for f in before_dir[root] if f not in after_dir[root]]
-            if added_file:
-                k = root.rfind('/') + 1
-                title = root[k:]
-                parent_info = json_info.find_one({'title': title})
-                if parent_info is None:
-                    parent_id = None
-                else:
-                    parent_id = parent_info['id']
-                for f in added_file:
-                    json_info = upload(os.path.join(root, f), drive_service, json_info, log_file, flag=True, parent_id=parent_id)
-            if modified_file:
-                k = root.rfind('/') + 1
-                title = root[k:]
-                for f in modified_file:
-                    json_info = update(os.path.join(root, f), drive_service, json_info, log_file)
-            if removed_file:
-                k = root.rfind('/') + 1
-                title = root[k:]
-                for f in removed_file:
-                    file_name = os.path.join(root, f)
-                    json_info = purge(file_name, drive_service, json_info, log_file)
-            if added_dir:
-                k = root.rfind('/') + 1
-                title = root[k:]
-                parent_info = json_info.find_one({'title': title, 'path': root})
-                if parent_info is None:
-                    parent_id = None
-                else:
-                    parent_id = parent_info['id']
-                for f in added_dir:
-                    file_name = os.path.join(root, f)
-                    json_info = upload(file_name, drive_service, json_info, log_file, flag=False, parent_id=parent_id)
-                    before_dir[file_name] = {}
-                    before_file[file_name] = {}
-            if removed_dir:
-                for f in removed_dir:
-                    file_name = os.path.join(root, f)
-                    print file_name
-                    json_info = purge(file_name, drive_service, json_info, log_file)
-            before_file[root] = after_file[root]
-            before_dir[root] = after_dir[root]
+                # Get list of files changed since last check
+                added_file = [f for f in after_file[root] if f not in before_file[root]]
+                removed_file = [f for f in before_file[root] if f not in after_file[root]]
+                modified_file = [f
+                                 for
+                                 f
+                                 in
+                                 before_file[root] if f in after_file[root]
+                                and
+                                before_file[root][f] != after_file[root][f]]
+                # Get list of directories changed since last check
+                added_dir = [f for f in after_dir[root] if f not in before_dir[root]]
+                removed_dir = [f for f in before_dir[root] if f not in after_dir[root]]
+                if added_file:
+                    k = root.rfind('/') + 1
+                    title = root[k:]
+                    parent_info = json_info.find_one({'title': title})
+                    if parent_info is None:
+                        parent_id = None
+                    else:
+                        parent_id = parent_info['id']
+                    for f in added_file:
+                        json_info = upload(os.path.join(root, f), drive_service, json_info, log_file, flag=True, parent_id=parent_id)
+                if modified_file:
+                    k = root.rfind('/') + 1
+                    title = root[k:]
+                    for f in modified_file:
+                        json_info = update(os.path.join(root, f), drive_service, json_info, log_file)
+                if removed_file:
+                    k = root.rfind('/') + 1
+                    title = root[k:]
+                    for f in removed_file:
+                        file_name = os.path.join(root, f)
+                        json_info = purge(file_name, drive_service, json_info, log_file)
+                if added_dir:
+                    k = root.rfind('/') + 1
+                    title = root[k:]
+                    parent_info = json_info.find_one({'title': title, 'path': root})
+                    if parent_info is None:
+                        parent_id = None
+                    else:
+                        parent_id = parent_info['id']
+                    for f in added_dir:
+                        file_name = os.path.join(root, f)
+                        json_info = upload(file_name, drive_service, json_info, log_file, flag=False, parent_id=parent_id)
+                        before_dir[file_name] = {}
+                        before_file[file_name] = {}
+                if removed_dir:
+                    for f in removed_dir:
+                        file_name = os.path.join(root, f)
+                        json_info = purge(file_name, drive_service, json_info, log_file)
+                before_file[root] = after_file[root]
+                before_dir[root] = after_dir[root]
+    except KeyboardInterrupt:
+        raise
 
 
 def helpmenu():
@@ -192,8 +175,8 @@ if __name__ == '__main__':
         write_str = 'Monitoring folder: ' + path + '\n'
         write_str += 'Time interval between syncs: ' + str(interval) + ' sec\n'
         log_file.write(write_str)
-        json_info = initialize_db(drive_service, log_file)
+        json_info = initialize_db(path, drive_service, log_file)
         if first_time == 'y':
             print 'Attempting to download all files and folders from Drive to your local folder...\n'
-            mirror(path, drive_service, json_info, log_file)
+            mirror(drive_service, json_info, log_file)
         watch(path, interval, drive_service, json_info, log_file)
