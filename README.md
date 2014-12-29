@@ -11,7 +11,8 @@ after which it keeps checking for changes in the local directory at regular inte
 
 * Files added remotely are downloaded correctly.
 
-* Files deleted remotely need to be deleted locally (not working).
+* Files deleted remotely are not deleted locally. The issue seems to be that the Google drive API is somewhat
+unreliable in reporting deleted files.
 
 ##System Requirements:
 
