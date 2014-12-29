@@ -5,11 +5,12 @@ This file contains all the functions that propagate changes from remote to local
 '''
 
 import os
+import shutil
 import time
 from apiclient import errors
 from db import initialize_db
 from pymongo import MongoClient
-
+from local2remote import purge
 
 def download_dir(drive_service, json_info, file_id, log_file):
     try:
@@ -98,24 +99,28 @@ def refresh(path, drive_service, db, log_file):
     deleted = set([])
     # Check for new/updated files
     for entry1 in new_cursor:
-        cursor = old_json_info.find({'id': entry1['id'],'path': entry1['path']})
+        cursor = old_json_info.find({'path': entry1['path']})
         if cursor.count() == 0:
             # This is a new document
+            print 'a file was added!'
             added.add(entry1['id'])
             continue
+        '''
         for entry in cursor:
             if entry['modifiedDate'] != entry1['modifiedDate']:
                 # It was updated, remove old entry from db.drivedb
                 added.add(entry1['id'])
-                db.drivedb.remove({'id': entry['id']})
+                old_json_info.remove({'id': entry['id']})
+        '''
     # Check for deleted files
     for entry2 in old_cursor:
-        cursor = db.tmpdb.find({'id': entry2['id'], 'path': entry2['path']})
+        print 'old: ' + entry2['path']
+        tmp_cursor = new_json_info.find({'path': entry2['path']})
         if cursor.count() == 0:
+            print 'a file was deleted!'
             # This means this entry was deleted
             deleted.add(entry2['id'])
     if added:
-        print 'Added: ' + str(added)
         for file_id in added:
             # First download all folders
             mimetype = db.tmpdb.find_one({'id': file_id})['mimeType']
@@ -134,7 +139,17 @@ def refresh(path, drive_service, db, log_file):
     if deleted:
         print 'Deleted: ' + str(deleted)
         for file_id in deleted:
-            file_path = db.drivedb.find_one({'id': file_id})['path']
+            # Check if it was a folder
+            mimetype = json_info.find_one({'id': file_id})['mimeType']
+            if mimetype == 'application/vnd.google-apps.folder':
+                # It is a folder, use shutil to remove
+                file_path = old_json_info.find_one({'id': file_id})['path']
+                shutil.rmtree(file_path)
+            else:
+                # It is a file
+                file_path = old_json_info.find_one({'id': file_id})['path']
+                if os.exists(file_path):
+                    os.remove(file_path)
             title = db.drivedb.find_one({'id': file_id})['path']
             print 'Removed file: ' + title
             purge(file_path, drive_service, db.drivedb, log_file)

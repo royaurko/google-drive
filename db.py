@@ -16,7 +16,7 @@ def create_db(path, drive_service, log_file):
     # Initialize a collection on this database from Drive
     initialize_db(path, drive_service, json_info)
     write_str = time.strftime("%m.%d.%y %H:%M ", time.localtime())
-    write_str += 'Database updated!\n'
+    write_str += 'Database initialized!\n'
     log_file.write(write_str)
     return db
 
@@ -26,7 +26,6 @@ def initialize_db(path, drive_service, json_info):
     json_info.remove()
     cursor = json_info.find()
     file_list = drive_service.files().list().execute()['items']
-    print len(file_list)
     for i in range(len(file_list)):
         temp_dict = dict((k, file_list[i][k])
                          for

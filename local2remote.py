@@ -112,6 +112,7 @@ def delete(file_name, drive_service, json_info, log_file):
 
 def purge(file_name, drive_service, json_info, log_file):
     # Delete file or folder and all the resulting orphans
+    # in Drive when it has been deleted locally
     try:
         cursor = json_info.find({'path': file_name})
         if cursor.count() == 0:
