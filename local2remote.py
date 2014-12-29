@@ -62,46 +62,35 @@ def upload(file_name, drive_service, json_info, log_file, flag=True, parent_id=N
 
 def update(file_name, drive_service, json_info, log_file):
     # Update existing file, find entry in database, check if path matches
-    try:
-        k = file_name.rfind('/') + 1
-        fname = file_name[k:]
-        fpath = file_name[:k-1]
-        cursor = json_info.find({'title': fname, 'path': fpath})
-        count = 0
-        for entries in cursor:
-            count += 1
-            file_id = entries['id']
-        if count > 1:
-            print 'Ambiguous entry'
-        file = drive_service.files().get(fileId=file_id).execute()
-        mime_type = mimetypes.guess_type(file_name)
-        if mime_type == (None, None):
-            mime_type = 'text/plain'
-        media_body = MediaFileUpload(file_name,
+    fpath = file_name
+    entry = json_info.find_one({'path': file_name})
+    file_id = entry['id']
+    file = drive_service.files().get(fileId=file_id).execute()
+    mime_type = mimetypes.guess_type(file_name)
+    if mime_type == (None, None):
+        mime_type = 'text/plain'
+    media_body = MediaFileUpload(file_name,
                                      mimetype=mime_type, resumable=True)
-        body = {
-            'title': file_name,
-            'description': '',
-            'mimeType': mime_type
-        }
-        # Send file
-        updated_file = drive_service.files().update(fileId=file_id, body=file,
+    body = {
+        'title': file_name,
+        'description': '',
+        'mimeType': mime_type
+    }
+    # Send file
+    updated_file = drive_service.files().update(fileId=file_id, body=file,
                                                     media_body=media_body).execute()
-        # Update last modified date in the database entry for this file
-        file = drive_service.files().get(fileId=file_id).execute()
-        modifiedDate = file.get('modifiedDate')
-        json_info.update({'id': file_id}, {"$set": {'modifiedDate': modifiedDate}})
-        # Write log entry
-        write_str = time.strftime("%m.%d.%y %H:%M ", time.localtime())
-        write_str += 'Uploaded (modified) file: ' + file_name + '\n'
-        log_file.write(write_str)
-        return json_info
-    except errors.HttpError, error:
-        print 'An error has occured: %s' % error
-        return json_info
-    except:
-        print 'An error occurred updating file\n'
-        return json_info
+    # Update last modified date in the database entry for this file
+    file = drive_service.files().get(fileId=file_id).execute()
+    modifiedDate = file.get('modifiedDate')
+    json_info.update({'id': file_id}, {"$set": {'modifiedDate': modifiedDate}})
+    # Write log entry
+    write_str = time.strftime("%m.%d.%y %H:%M ", time.localtime())
+    write_str += 'Uploaded (modified) file: ' + file_name + '\n'
+    log_file.write(write_str)
+    return json_info
+    # except errors.HttpError, error:
+      #  print 'An error has occured: %s' % error
+    return json_info
 
 
 def delete(file_name, drive_service, json_info, log_file):

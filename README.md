@@ -49,5 +49,8 @@ the files and folders from remote to your local target directory.
 
 ##Todo:
 
+* Mirror downloads all files regardless of whether it is present locally or not. It should only download when it was
+modified remotely at a time later than the last time it was modified locally.
+
 * Update/delete files locally when updated/deleted remotely
 

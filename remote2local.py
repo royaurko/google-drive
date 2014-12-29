@@ -7,8 +7,9 @@ This file contains all the functions that propagate changes from remote to local
 import os
 import time
 from apiclient import errors
-from db import populate_db
+from db import initialize_db
 from pymongo import MongoClient
+
 
 def download_dir(drive_service, json_info, file_id, log_file):
     try:
@@ -36,8 +37,22 @@ def download_file(drive_service, json_info, file_id, log_file, parent_id=None):
     if download_url:
         resp, content = drive_service._http.request(download_url)
         if resp.status == 200:
-            # need to set path properly
+            # Need to check time stamp
             if not os.path.isfile(file_path):
+                print 'Downloading: ' + file_path
+                f = open(file_path, 'w')
+                f.write(content)
+                f.close()
+                write_str = time.strftime("%m.%d.%y %H:%M ", time.localtime())
+                write_str += 'Downloaded file: ' + file_path + '\n'
+                log_file.write(write_str)
+            else:
+                # File already exists, maybe it was modified in remote
+                entry = json_info.find_one({'id': file_id})
+                mtime_remote = entry['modifiedDate']
+                # This is in RFC3399 need to convert it into UTC
+                mtime_local = time.ctime(os.path.getmtime(file_path))
+                # for now just download file, need to check modify time
                 print 'Downloading: ' + file_path
                 f = open(file_path, 'w')
                 f.write(content)
@@ -77,15 +92,12 @@ def mirror(drive_service, json_info, log_file):
     return json_info
 
 
-
 def refresh(path, drive_service, json_info, log_file):
     # Check to see if the database is up to date with local changes
     # Fetch current database from Drive
-    current_json_info = populate_db(path, current_json_info, drive_service, log_file)
+    current_json_info = initialize_db(path, drive_service, log_file)
     old_cursor = json_info.find()
     new_cursor = current_json_info.find()
-    print 'Old count: ' + str(old_cursor.count()) + '\n'
-    print 'New count: ' + str(new_cursor.count()) + '\n'
     added = set([])
     deleted = set([])
     # Check for new/updated files
