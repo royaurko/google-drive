@@ -1,20 +1,32 @@
+'''
+
+This file contains functions that are responsible for maintaining the database
+
+'''
+
 import time
 from pymongo import MongoClient
 
 
-def initialize_db(path, drive_service, log_file):
+def create_db(path, drive_service, log_file):
     # Populate database with the current metadata
     client = MongoClient()
-    db = client.drivedb
+    db = client.googledrivedb
     json_info = db.drivedb
-    json_info = populate_db(path, json_info, drive_service, log_file)
-    return json_info
+    # Initialize a collection on this database from Drive
+    initialize_db(path, drive_service, json_info)
+    write_str = time.strftime("%m.%d.%y %H:%M ", time.localtime())
+    write_str += 'Database updated!\n'
+    log_file.write(write_str)
+    return db
 
 
-def populate_db(path, json_info, drive_service, log_file):
+def initialize_db(path, drive_service, json_info):
     # Clear database just to be sure
     json_info.remove()
+    cursor = json_info.find()
     file_list = drive_service.files().list().execute()['items']
+    print len(file_list)
     for i in range(len(file_list)):
         temp_dict = dict((k, file_list[i][k])
                          for
@@ -29,12 +41,8 @@ def populate_db(path, json_info, drive_service, log_file):
             # Hasn't been inserted in database yet
             json_id = json_info.insert(temp_dict)
         else:
-            print 'Duplicate: ' + temp_dict['title']
-    json_info = remove_orphans(path, json_info)
-    write_str = time.strftime("%m.%d.%y %H:%M ", time.localtime())
-    write_str += 'Database populated!\n'
-    log_file.write(write_str)
-    return json_info
+            print 'Duplicate\n'
+    remove_orphans(path, json_info)
 
 
 def remove_orphans(path, json_info):
@@ -88,4 +96,3 @@ def remove_orphans(path, json_info):
         else:
             # there is no parents data
             json_info.remove({'_id': entry['_id']})
-    return json_info

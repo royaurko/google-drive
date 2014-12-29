@@ -54,10 +54,8 @@ def upload(file_name, drive_service, json_info, log_file, flag=True, parent_id=N
             json_id = json_info.insert(temp_dict)
         except errors.HttpError, error:
             print 'An error occured: %s' % error
-        return json_info
     except:
         print 'An error occured uploading file\n'
-        return json_info
 
 
 def update(file_name, drive_service, json_info, log_file):
@@ -87,10 +85,8 @@ def update(file_name, drive_service, json_info, log_file):
     write_str = time.strftime("%m.%d.%y %H:%M ", time.localtime())
     write_str += 'Uploaded (modified) file: ' + file_name + '\n'
     log_file.write(write_str)
-    return json_info
     # except errors.HttpError, error:
       #  print 'An error has occured: %s' % error
-    return json_info
 
 
 def delete(file_name, drive_service, json_info, log_file):
@@ -110,10 +106,8 @@ def delete(file_name, drive_service, json_info, log_file):
                 log_file.write(write_str)
             except errors.HttpError, error:
                 print 'An error occurred: %s' % error
-        return json_info
     except:
-        print 'Error deleting file\n'
-        return json_info
+        print 'Error deleting file: ' + file_name
 
 
 def purge(file_name, drive_service, json_info, log_file):
@@ -121,13 +115,13 @@ def purge(file_name, drive_service, json_info, log_file):
     try:
         cursor = json_info.find({'path': file_name})
         if cursor.count() == 0:
-            return json_info
+            return
         for entry in cursor:
             file_id = entry['id']
             if entry['mimeType'] != 'application/vnd.google-apps.folder':
                 #It is a file and so no need to check for orphans
                 json_info = delete(file_name, drive_service, json_info, log_file)
-                return json_info
+                return
         # It must be a folder, check for possible orphans
         delete_info = set([(file_name, file_id)])
         flag = True
@@ -147,7 +141,5 @@ def purge(file_name, drive_service, json_info, log_file):
         # Delete all the files and folders accumulated in delete_id
         for f in delete_info:
             json_info = delete(f[0], drive_service, json_info, log_file)
-        return json_info
     except:
         print 'Error deleting file\n'
-        return json_info

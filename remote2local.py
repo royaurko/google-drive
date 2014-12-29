@@ -20,10 +20,8 @@ def download_dir(drive_service, json_info, file_id, log_file):
             write_str += 'Downloaded directory: ' + dir_path + '\n'
             log_file.write(write_str)
             os.makedirs(dir_path)
-        return json_info
     except:
         print 'An error occurred downloading directory\n'
-        return json_info
 
 
 def download_file(drive_service, json_info, file_id, log_file, parent_id=None):
@@ -31,7 +29,6 @@ def download_file(drive_service, json_info, file_id, log_file, parent_id=None):
         file = drive_service.files().get(fileId=file_id).execute()
     except errors.HttpError, error:
         print 'An error occured: %s' % error
-        return json_info
     download_url = file.get('downloadUrl')
     file_path = json_info.find_one({'id': file_id})['path']
     if download_url:
@@ -62,14 +59,13 @@ def download_file(drive_service, json_info, file_id, log_file, parent_id=None):
                 log_file.write(write_str)
         else:
             print 'An error occurred: %s' % resp
-    return json_info
 
 
 def mirror_dir(drive_service, json_info, log_file):
     cursor = json_info.find({'mimeType':'application/vnd.google-apps.folder'})
     for entry in cursor:
         file_id = entry['id']
-        json_info = download_dir(drive_service, json_info, file_id, log_file)
+        download_dir(drive_service, json_info, file_id, log_file)
     return json_info
 
 
@@ -79,8 +75,7 @@ def mirror_file(drive_service, json_info, log_file):
             if entry['mimeType'] != 'application/vnd.google-apps.folder':
                 # If it is not a folder
                 file_id = entry['id']
-                json_info = download_file(drive_service, json_info, file_id, log_file,)
-    return json_info
+                download_file(drive_service, json_info, file_id, log_file,)
 
 
 def mirror(drive_service, json_info, log_file):
@@ -89,47 +84,59 @@ def mirror(drive_service, json_info, log_file):
     mirror_dir(drive_service, json_info, log_file)
     # Download files to appropriate folders
     mirror_file(drive_service, json_info, log_file)
-    return json_info
 
 
-def refresh(path, drive_service, json_info, log_file):
+def refresh(path, drive_service, db, log_file):
     # Check to see if the database is up to date with local changes
-    # Fetch current database from Drive
-    current_json_info = initialize_db(path, drive_service, log_file)
-    old_cursor = json_info.find()
-    new_cursor = current_json_info.find()
+    new_json_info = db.tmpdb
+    old_json_info = db.drivedb
+    initialize_db(path, drive_service, new_json_info)
+    old_cursor = old_json_info.find()
+    new_cursor = new_json_info.find()
     added = set([])
+    updated = set([])
     deleted = set([])
     # Check for new/updated files
     for entry1 in new_cursor:
-        cursor = json_info.find({'id': entry1['id']})
+        cursor = old_json_info.find({'id': entry1['id'],'path': entry1['path']})
         if cursor.count() == 0:
             # This is a new document
             added.add(entry1['id'])
+            continue
         for entry in cursor:
-            if entry != entry1:
-                # Either updated or moved, remove old entry from json_info
+            if entry['modifiedDate'] != entry1['modifiedDate']:
+                # It was updated, remove old entry from db.drivedb
                 added.add(entry1['id'])
-                json_info.remove({'id': entry['id']})
+                db.drivedb.remove({'id': entry['id']})
     # Check for deleted files
     for entry2 in old_cursor:
-        cursor = current_json_info.find({'id': entry2['id']})
+        cursor = db.tmpdb.find({'id': entry2['id'], 'path': entry2['path']})
         if cursor.count() == 0:
             # This means this entry was deleted
             deleted.add(entry2['id'])
-    for file_id in added:
-        title = json_info.find_one({'id': file_id})['title']
-        print 'Added file from remote: ' + title
-        mimetype = json_info.find_one({'id': file_id})['mimeType']
-        if mimetype == 'application/vnd.google-apps.folder':
-            # Need to set path correctly, find highest ancestor in added etc
-            download_dir(drive_service, json_info, file_id, log_file)
-        else:
-            # Need to set path correctly
-            download_file(drive_service, json_info, file_id, log_file)
-    for file_id in deleted:
-        file_path = json_info.find_one({'id': file_id})['path']
-        title = json_info.find_one({'id': file_id})['path']
-        print 'Removed file: ' + title
-        purge(file_path, drive_service, json_info, log_file)
-    return json_info
+    if added:
+        print 'Added: ' + str(added)
+        for file_id in added:
+            # First download all folders
+            mimetype = db.tmpdb.find_one({'id': file_id})['mimeType']
+            if mimetype == 'application/vnd.google-apps.folder':
+                # Need to set path correctly, find highest ancestor in added etc
+                download_dir(drive_service, db.tmpdb, file_id, log_file)
+                entry = db.tmpdb.find_one({'id': file_id})
+                db.drivedb.insert(entry)
+        for file_id in added:
+            mimetype = db.tmpdb.find_one({'id': file_id})['mimeType']
+            if mimetype != 'application/vnd.google-apps.folder':
+                # Need to set path correctly
+                download_file(drive_service, db.tmpdb, file_id, log_file)
+                entry = db.tmpdb.find_one({'id': file_id})
+                db.drivedb.insert(entry)
+    if deleted:
+        print 'Deleted: ' + str(deleted)
+        for file_id in deleted:
+            file_path = db.drivedb.find_one({'id': file_id})['path']
+            title = db.drivedb.find_one({'id': file_id})['path']
+            print 'Removed file: ' + title
+            purge(file_path, drive_service, db.drivedb, log_file)
+    # Clean up tmpdb
+    db.tmpdb.remove()

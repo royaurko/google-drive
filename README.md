@@ -9,7 +9,9 @@ after which it keeps checking for changes in the local directory at regular inte
 
 * So far it correctly downloads all the content in the proper hierarchy and reflects local changes remotely. 
 
-* Reflecting remote changes locally has not been correctly impelemented yet.
+* Files added remotely are downloaded correctly.
+
+* Files deleted remotely need to be deleted locally (not working).
 
 ##System Requirements:
 
@@ -52,5 +54,4 @@ the files and folders from remote to your local target directory.
 * Mirror downloads all files regardless of whether it is present locally or not. It should only download when it was
 modified remotely at a time later than the last time it was modified locally.
 
-* Update/delete files locally when updated/deleted remotely
-
+* Delete files locally when deleted remotely
