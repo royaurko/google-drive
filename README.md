@@ -1,8 +1,15 @@
 ##Description:
 
-A bunch of python scripts to make Google Drive behave like Dropbox. When run for the first time
-the script attempts to download all files from Drive to the target folder, after which it keeps checking for 
-changes in the local directory at regular intervals and mirrors it to Drive. This is still very much a work in progress.
+* A bunch of python scripts to make Google Drive contents sync to a local folder. 
+
+* When run for the first time the script attempts to download all files from Drive
+ to the target folder (skipping over files already present), 
+after which it keeps checking for changes in the local directory at regular intervals and mirrors it to Drive. 
+
+
+* So far it correctly downloads all the content in the proper hierarchy and reflects local changes remotely. 
+
+* Reflecting remote changes locally has not been correctly impelemented yet.
 
 ##System Requirements:
 
@@ -42,7 +49,5 @@ the files and folders from remote to your local target directory.
 
 ##Todo:
 
-* Fix some issues with deletion (files with same name under different folders)
-* While uploading, check if file or folder exists already, return error in that case
-* Update, delete files locally when updated, deleted remotely
+* Update/delete files locally when updated/deleted remotely
 
