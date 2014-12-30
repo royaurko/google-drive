@@ -141,6 +141,6 @@ def purge(file_name, drive_service, json_info, log_file):
                 flag = False
         # Delete all the files and folders accumulated in delete_id
         for f in delete_info:
-            json_info = delete(f[0], drive_service, json_info, log_file)
+            delete(f[0], drive_service, json_info, log_file)
     except:
         print 'Error deleting file\n'
