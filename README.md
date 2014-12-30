@@ -15,7 +15,7 @@ in ~/.zshenv or ~/.bashrc)
 
 ```
 
-Usage: ./drive.py [Optional options...] &
+Usage: ./drive.py [Optional options...] 
 
 Optional Options:
   -f Path to local folder (default: current folder)
