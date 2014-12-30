@@ -1,18 +1,7 @@
 ##Description:
 
-* A bunch of python scripts to make Google Drive contents sync to a local folder. 
-
-* When run for the first time the script attempts to download all files from Drive
- to the target folder (skipping over files already present), 
-after which it keeps checking for changes in the local directory at regular intervals and mirrors it to Drive. 
-
-
-* So far it correctly downloads all the content in the proper hierarchy and reflects local changes remotely. 
-
-* Files added remotely are downloaded correctly.
-
-* Files deleted remotely are not deleted locally. The issue seems to be that the Google drive API is somewhat
-unreliable in reporting deleted files.
+* A simple python program that fetches your Google Drive content to a local folder, waits for
+you to finish editing content locally and on exiting saves all changes back to Drive. 
 
 ##System Requirements:
 
@@ -29,30 +18,18 @@ in ~/.zshenv or ~/.bashrc)
 Usage: ./drive.py [Optional options...] &
 
 Optional Options:
-  -t Time interval between syncs
-  -f Folder to sync
+  -f Path to local folder (default: current folder)
 
 ```
 
-* The script will ask you whether this is the first time you are running it, in which case it will attempt to download
-the files and folders from remote to your local target directory.
+* The script will ask you whether you want to fetch content from Drive to the target folder. Note 
+that this will over write any files in the target folder with conflicting names.
 
-* The script will not download any folders, subfolders, files that are not owned by you.
+* The script will not download any folders, subfolders, files that are not owned by you. 
 
-* By default the script monitors the folder where the script is located and the time interval between syncs is 10 seconds.
+* The script will wait while you work locally and make changes to your Google Drive.
+
+* When you are done, press Ctrl-C to halt the execution of the script. Before exiting the script
+will save all changes made locally back to Drive.
 
 * The script maintains a log file named *log* which is located in the same directory as the script.   
-
-##Implemented so far:
-
-* Uploading files, folders from local to remote (preserving hierarchy)
-* Updating files changed in local to remote (preserving hierarchy)
-* Deleting remote files, folders deleted locally
-
-
-##Todo:
-
-* Mirror downloads all files regardless of whether it is present locally or not. It should only download when it was
-modified remotely at a time later than the last time it was modified locally.
-
-* Delete files locally when deleted remotely

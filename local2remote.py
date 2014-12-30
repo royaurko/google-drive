@@ -46,10 +46,10 @@ def upload(file_name, drive_service, json_info, log_file, flag=True, parent_id=N
             temp_dict['broken'] = False
             write_str = time.strftime("%m.%d.%y %H:%M ", time.localtime())
             if flag:
-                write_str += 'Uploaded (new) file: ' + file_name + '\n'
+                write_str += 'Uploaded (new) file to remote: ' + file_name + '\n'
                 log_file.write(write_str)
             else:
-                write_str += 'Uploaded (new) directory: ' + file_name + '\n'
+                write_str += 'Uploaded (new) directory to remote: ' + file_name + '\n'
                 log_file.write(write_str)
             json_id = json_info.insert(temp_dict)
         except errors.HttpError, error:
@@ -83,7 +83,7 @@ def update(file_name, drive_service, json_info, log_file):
     json_info.update({'id': file_id}, {"$set": {'modifiedDate': modifiedDate}})
     # Write log entry
     write_str = time.strftime("%m.%d.%y %H:%M ", time.localtime())
-    write_str += 'Uploaded (modified) file: ' + file_name + '\n'
+    write_str += 'Uploaded (modified) file to remote: ' + file_name + '\n'
     log_file.write(write_str)
     # except errors.HttpError, error:
       #  print 'An error has occured: %s' % error
@@ -102,7 +102,7 @@ def delete(file_name, drive_service, json_info, log_file):
                 drive_service.files().delete(fileId=file_id).execute()
                 json_info.remove({'id': entry['id']})
                 write_str = time.strftime("%m.%d.%y %H:%M ", time.localtime())
-                write_str += 'Deleted: ' + file_name + '\n'
+                write_str += 'Deleted (remote): ' + file_name + '\n'
                 log_file.write(write_str)
             except errors.HttpError, error:
                 print 'An error occurred: %s' % error

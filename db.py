@@ -24,14 +24,13 @@ def create_db(path, drive_service, log_file):
 def initialize_db(path, drive_service, json_info):
     # Clear database just to be sure
     json_info.remove()
-    cursor = json_info.find()
     file_list = drive_service.files().list().execute()['items']
     for i in range(len(file_list)):
         temp_dict = dict((k, file_list[i][k])
                          for
                          k
                          in
-                         ('id', 'title', 'parents',
+                         ('id', 'title', 'parents', 'labels',
                          'mimeType', 'createdDate', 'modifiedDate'))
         temp_dict['path'] = None
         # Check if a file with that id has already been inserted
@@ -42,6 +41,7 @@ def initialize_db(path, drive_service, json_info):
         else:
             print 'Duplicate\n'
     remove_orphans(path, json_info)
+    cursor = json_info.find()
 
 
 def remove_orphans(path, json_info):

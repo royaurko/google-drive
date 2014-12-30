@@ -16,9 +16,8 @@ def download_dir(drive_service, json_info, file_id, log_file):
     try:
         dir_path = json_info.find_one({'id': file_id})['path']
         if not os.path.exists(dir_path):
-            print 'Downloading: ' + dir_path
             write_str = time.strftime("%m.%d.%y %H:%M ", time.localtime())
-            write_str += 'Downloaded directory: ' + dir_path + '\n'
+            write_str += 'Downloaded directory (local): ' + dir_path + '\n'
             log_file.write(write_str)
             os.makedirs(dir_path)
     except:
@@ -37,12 +36,11 @@ def download_file(drive_service, json_info, file_id, log_file, parent_id=None):
         if resp.status == 200:
             # Need to check time stamp
             if not os.path.isfile(file_path):
-                print 'Downloading: ' + file_path
                 f = open(file_path, 'w')
                 f.write(content)
                 f.close()
                 write_str = time.strftime("%m.%d.%y %H:%M ", time.localtime())
-                write_str += 'Downloaded file: ' + file_path + '\n'
+                write_str += 'Downloaded file (local): ' + file_path + '\n'
                 log_file.write(write_str)
             else:
                 # File already exists, maybe it was modified in remote
@@ -51,12 +49,11 @@ def download_file(drive_service, json_info, file_id, log_file, parent_id=None):
                 # This is in RFC3399 need to convert it into UTC
                 mtime_local = time.ctime(os.path.getmtime(file_path))
                 # for now just download file, need to check modify time
-                print 'Downloading: ' + file_path
                 f = open(file_path, 'w')
                 f.write(content)
                 f.close()
                 write_str = time.strftime("%m.%d.%y %H:%M ", time.localtime())
-                write_str += 'Downloaded file: ' + file_path + '\n'
+                write_str += 'Downloaded file (local): ' + file_path + '\n'
                 log_file.write(write_str)
         else:
             print 'An error occurred: %s' % resp
@@ -66,8 +63,12 @@ def mirror_dir(drive_service, json_info, log_file):
     cursor = json_info.find({'mimeType':'application/vnd.google-apps.folder'})
     for entry in cursor:
         file_id = entry['id']
+        if 'labels' in entry:
+            if 'trashed' in entry['labels']:
+                if entry['labels']['trashed']:
+                    # If it is trashed don't download it
+                    continue
         download_dir(drive_service, json_info, file_id, log_file)
-    return json_info
 
 
 def mirror_file(drive_service, json_info, log_file):
@@ -76,6 +77,11 @@ def mirror_file(drive_service, json_info, log_file):
             if entry['mimeType'] != 'application/vnd.google-apps.folder':
                 # If it is not a folder
                 file_id = entry['id']
+                if 'labels' in entry:
+                    if 'trashed' in entry['labels']:
+                        if entry['labels']['trashed']:
+                            # If it is trashed don't download it
+                            continue
                 download_file(drive_service, json_info, file_id, log_file,)
 
 
@@ -85,70 +91,3 @@ def mirror(drive_service, json_info, log_file):
     mirror_dir(drive_service, json_info, log_file)
     # Download files to appropriate folders
     mirror_file(drive_service, json_info, log_file)
-
-
-def refresh(path, drive_service, db, log_file):
-    # Check to see if the database is up to date with local changes
-    new_json_info = db.tmpdb
-    old_json_info = db.drivedb
-    initialize_db(path, drive_service, new_json_info)
-    old_cursor = old_json_info.find()
-    new_cursor = new_json_info.find()
-    added = set([])
-    updated = set([])
-    deleted = set([])
-    # Check for new/updated files
-    for entry1 in new_cursor:
-        cursor = old_json_info.find({'path': entry1['path']})
-        if cursor.count() == 0:
-            # This is a new document
-            added.add(entry1['id'])
-            continue
-        for entry in cursor:
-            if entry['modifiedDate'] != entry1['modifiedDate']:
-                # Need to compare time stamps to check whether the
-                # latest modification was local or remote
-                # added.add(entry1['id'])
-                # old_json_info.remove({'id': entry['id']})
-                pass
-    # Check for deleted files
-    for entry2 in old_cursor:
-        tmp_cursor = new_json_info.find({'path': entry2['path']})
-        if cursor.count() == 0:
-            # This means this entry was deleted
-            deleted.add(entry2['id'])
-    if added:
-        for file_id in added:
-            # First download all folders
-            mimetype = db.tmpdb.find_one({'id': file_id})['mimeType']
-            if mimetype == 'application/vnd.google-apps.folder':
-                # Need to set path correctly, find highest ancestor in added etc
-                download_dir(drive_service, db.tmpdb, file_id, log_file)
-                entry = db.tmpdb.find_one({'id': file_id})
-                db.drivedb.insert(entry)
-        for file_id in added:
-            mimetype = db.tmpdb.find_one({'id': file_id})['mimeType']
-            if mimetype != 'application/vnd.google-apps.folder':
-                # Need to set path correctly
-                download_file(drive_service, db.tmpdb, file_id, log_file)
-                entry = db.tmpdb.find_one({'id': file_id})
-                db.drivedb.insert(entry)
-    if deleted:
-        print 'Deleted: ' + str(deleted)
-        for file_id in deleted:
-            # Check if it was a folder
-            mimetype = json_info.find_one({'id': file_id})['mimeType']
-            if mimetype == 'application/vnd.google-apps.folder':
-                # It is a folder, use shutil to remove
-                file_path = old_json_info.find_one({'id': file_id})['path']
-                shutil.rmtree(file_path)
-            else:
-                # It is a file
-                file_path = old_json_info.find_one({'id': file_id})['path']
-                if os.exists(file_path):
-                    os.remove(file_path)
-            title = db.drivedb.find_one({'id': file_id})['path']
-            print 'Removed file: ' + title
-            purge(file_path, drive_service, db.drivedb, log_file)
-    # Clean up tmpdb
-    db.tmpdb.remove()
