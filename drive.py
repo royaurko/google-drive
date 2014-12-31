@@ -59,7 +59,7 @@ def watch(path, drive_service, db, log_file):
                                     for f in files if f not in forbidden and '.swp' not in f])
             before_dir[root] = dict([(f, time.ctime(os.path.getmtime(os.path.join(root, f))))
                                     for f in dirs if f not in forbidden and '.swp' not in f])
-        print 'Press [Ctrl]-C to exit and upload local changes to Drive '
+        print 'Press [Ctrl]-c to exit and upload local changes to Drive '
         while True:
             pass
     except KeyboardInterrupt:

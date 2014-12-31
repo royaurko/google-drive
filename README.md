@@ -29,7 +29,7 @@ that this will over write any files in the target folder with conflicting names.
 
 * The script will wait while you work locally and make changes to your Google Drive.
 
-* When you are done, press Ctrl-C to halt the execution of the script. Before exiting the script
+* When you are done, press Ctrl-c to halt the execution of the script. Before exiting the script
 will save all changes made locally back to Drive.
 
 * The script maintains a log file named *log* which is located in the same directory as the script.   
