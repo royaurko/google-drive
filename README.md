@@ -6,12 +6,17 @@ you to finish editing content locally and on exiting saves all changes back to D
 ##System Requirements:
 
 * python 2.7
+* pymongo for python 2.7 
 * [mongoDB] (http://www.mongodb.org/)
 
 ##Usage:
 
-* Set **CLIENT_ID** and **CLIENT_SECRET** for accessing your Google Drive account as environment variables (for instance
+* Get your **CLIENT_ID** and **CLIENT_SECRET** by enabling API access to Google Drive from 
+[here](https://developers.google.com/drive/web/enable-sdk). Set **CLIENT_ID** and **CLIENT_SECRET** 
+for accessing your Google Drive account as environment variables (for instance
 in ~/.zshenv or ~/.bashrc)
+
+* Make sure that mongodb is running before running this program.
 
 ```
 
