@@ -13,8 +13,7 @@ you to finish editing content locally and on exiting saves all changes back to D
 
 * Get your **CLIENT_ID** and **CLIENT_SECRET** by enabling API access to Google Drive from 
 [here](https://developers.google.com/drive/web/enable-sdk). Set **CLIENT_ID** and **CLIENT_SECRET** 
-for accessing your Google Drive account as environment variables (for instance
-in ~/.zshenv or ~/.bashrc)
+as environment variables (for instance in ~/.zshenv or ~/.bashrc)
 
 * Make sure that mongodb is running before running this program.
 
